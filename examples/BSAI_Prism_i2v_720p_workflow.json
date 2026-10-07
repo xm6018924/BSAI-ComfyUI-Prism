@@ -1,0 +1,68 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "ref_image.png",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "BSAIPrismLoader",
+    "inputs": {
+      "base_model_path": "G:/BSAI-ComfyUI-intel-XPU-GPU-NPU-aki/ComfyUI/models/diffusers/BSAI-Prism/pretrained_models/MOVA-360p",
+      "resume_ckpt": "G:/BSAI-ComfyUI-intel-XPU-GPU-NPU-aki/ComfyUI/models/diffusers/BSAI-Prism/preview_alpha/diffusion_pytorch_model.safetensors",
+      "device": "cuda:0",
+      "offload": "cpu",
+      "enable_bsa": true,
+      "bsa_sparsity": 0.75,
+      "bsa_chunk_3d_shape_q": "4 4 4",
+      "bsa_chunk_3d_shape_k": "4 4 4",
+      "bsa_cdf_threshold": 0.2,
+      "enable_ivpq_dynamic_block": true,
+      "enable_layer_adaptive_dynamic_block": false,
+      "sparse_high_noise_only": false,
+      "enable_bsa_v2a": false,
+      "bsa_v2a_sparsity": 0.875,
+      "bsa_v2a_audio_chunk_size": 64,
+      "bsa_v2a_chunk_3d_shape_k": "4 4 4",
+      "enable_audio_guidance": false,
+      "audio_boost_gamma": 2.0,
+      "enable_variance_guidance": false,
+      "variance_boost_gamma": 2.0,
+      "enable_taylor_sparse_attn": false,
+      "enable_rectified_sparse_attn": false
+    }
+  },
+  "3": {
+    "class_type": "BSAIPrismSampler",
+    "inputs": {
+      "prism_model": [
+        "2",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
+      "prompt": "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
+      "audio_prompt": "",
+      "negative_prompt": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指",
+      "resolution": "720p (720x1280)",
+      "height": 480,
+      "width": 848,
+      "num_frames": 205,
+      "fps": 24.0,
+      "num_inference_steps": 50,
+      "cfg_scale": 5.0,
+      "visual_shift": 7.0,
+      "audio_shift": 7.0,
+      "seed": 42,
+      "enable_vae_tiling": false,
+      "tile_sample_min_size": 256,
+      "tile_sample_stride": 192,
+      "remove_video_dit_after_switch": false,
+      "save_video": true,
+      "filename_prefix": "BSAI_Prism"
+    }
+  }
+}

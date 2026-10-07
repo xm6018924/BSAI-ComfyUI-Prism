@@ -1,0 +1,28 @@
+# BSAI ComfyUI Prism —— 运行依赖
+# 说明：ComfyUI 自带 CUDA Python 环境（python_embeded_cuda）通常已包含
+# 下列大部分包。本文件仅供缺失校验与手动补装参考；插件不会自动重装
+# diffusers 等 ComfyUI 核心依赖（避免破坏主环境）。
+
+# 核心（Prism 运行时依赖）
+diffusers>=0.33.0          # ComfyUI 0.39.0 环境已验证兼容
+transformers>=4.57.0
+accelerate>=1.10.0
+safetensors>=0.6.2
+einops>=0.8.1
+
+# 注意力加速（必需 CUDA >= 12.4）
+flash-attn>=2.8.0
+triton>=3.3.0
+
+# 音频编解码（DAC VAE）
+descript-audiotools>=0.7.2
+
+# 视频 I/O
+imageio[ffmpeg]>=2.37.0
+Pillow>=11.0.0
+numpy>=1.26.0
+
+# 配置与工具
+omegaconf>=2.3.0
+ftfy>=6.3.0
+huggingface_hub>=0.20.0   # 权重下载节点
