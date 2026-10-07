@@ -34,6 +34,50 @@ from .download_weights import COMPONENT_PATTERNS, download_component
 
 PRISM_MODEL_TYPE = "BSAI_PRISM_MODEL"
 
+# Prism 权重根目录（ComfyUI models/diffusers 下）
+_PRISM_ROOT = os.path.join(folder_paths.models_dir, "diffusers", "BSAI-Prism")
+
+
+def _scan_base_models():
+    """扫描 Prism 根目录下所有 pretrained_models/<name> 基底目录。"""
+    bases = []
+    pretrained_dir = os.path.join(_PRISM_ROOT, "pretrained_models")
+    if os.path.isdir(pretrained_dir):
+        for name in sorted(os.listdir(pretrained_dir)):
+            sub = os.path.join(pretrained_dir, name)
+            if os.path.isfile(os.path.join(sub, "model_index.json")):
+                bases.append(name)
+    return bases or ["MOVA-360p"]
+
+
+def _scan_resume_ckpts():
+    """扫描 Prism 根目录下所有 preview_*/diffusion_pytorch_model.safetensors。"""
+    ckpts = []
+    if os.path.isdir(_PRISM_ROOT):
+        for name in sorted(os.listdir(_PRISM_ROOT)):
+            sub = os.path.join(_PRISM_ROOT, name)
+            ckpt = os.path.join(sub, "diffusion_pytorch_model.safetensors")
+            if os.path.isfile(ckpt):
+                ckpts.append(name)
+    return ckpts or ["preview_alpha"]
+
+
+def _resolve_base_path(base_name):
+    """将下拉选择的基底名称解析为绝对路径。"""
+    # 如果已经是路径（包含分隔符），直接返回
+    if os.sep in base_name or "/" in base_name:
+        return os.path.abspath(base_name)
+    return os.path.join(_PRISM_ROOT, "pretrained_models", base_name)
+
+
+def _resolve_resume_ckpt(ckpt_name):
+    """将下拉选择的 checkpoint 名称解析为绝对路径。"""
+    if not ckpt_name or ckpt_name == "（无）" or ckpt_name == "none":
+        return ""
+    if os.sep in ckpt_name or "/" in ckpt_name:
+        return os.path.abspath(ckpt_name)
+    return os.path.join(_PRISM_ROOT, ckpt_name, "diffusion_pytorch_model.safetensors")
+
 
 def _log(msg):
     print(f"[BSAI Prism] {msg}")
@@ -60,27 +104,25 @@ class PrismModelHandle:
 class BSAIPrismLoader:
     @classmethod
     def INPUT_TYPES(cls):
-        default_base = os.path.join(
-            folder_paths.models_dir, "diffusers", "BSAI-Prism",
-            "pretrained_models", "MOVA-360p",
-        )
+        base_models = _scan_base_models()
+        resume_ckpts = _scan_resume_ckpts() + ["（无）"]
         devices = ["cuda:0"] if torch.cuda.is_available() else []
         if torch.cuda.is_available():
             devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
         return {
             "required": {
-                "base_model_path": ("STRING", {
-                    "default": default_base,
-                    "multiline": False,
-                    "tooltip": "MOVA-360p 基底目录（含 model_index.json 及 video_dit/"
-                               "audio_dit/dual_tower_bridge/video_vae/audio_vae/"
-                               "text_encoder/tokenizer/scheduler 子目录）。",
+                "base_model": (base_models, {
+                    "default": base_models[0],
+                    "tooltip": "MOVA 基底模型（架构骨架，不含微调权重）。"
+                               "决定模型整体结构、VAE、text_encoder 等基础组件。"
+                               "相当于'毛坯房'，提供基本框架。",
                 }),
-                "resume_ckpt": ("STRING", {
-                    "default": "",
-                    "multiline": False,
-                    "tooltip": "Prism 微调权重路径（preview_alpha 或 preview_beta 的 "
-                               "diffusion_pytorch_model.safetensors）。留空 = 只用基底。",
+                "resume_ckpt": (resume_ckpts, {
+                    "default": resume_ckpts[0],
+                    "tooltip": "Prism 微调权重（preview_alpha / preview_beta）。"
+                               "在基底之上加载，决定生成质量和风格。"
+                               "相当于'精装修'，赋予模型实际生成能力。"
+                               "选择（无）则只用基底（不推荐，效果差）。",
                 }),
                 "device": (devices or ["N/A"], {
                     "default": "cuda:0" if devices else "N/A",
@@ -174,7 +216,7 @@ class BSAIPrismLoader:
 
     def load(
         self,
-        base_model_path,
+        base_model,
         resume_ckpt,
         device,
         offload,
@@ -211,14 +253,18 @@ class BSAIPrismLoader:
                 f"CUDA 设备索引 {dev_idx} 超出范围（共 {torch.cuda.device_count()} 个）。"
             )
 
+        # 解析基底和 checkpoint 路径（下拉名称 -> 绝对路径）
+        base_model_path = _resolve_base_path(base_model)
+        resume_ckpt_path = _resolve_resume_ckpt(resume_ckpt)
+
         base_model_path = os.path.abspath(base_model_path)
         if not os.path.isfile(os.path.join(base_model_path, "model_index.json")):
             raise FileNotFoundError(
                 f"找不到 MOVA 基底：{base_model_path}（需要包含 model_index.json）。"
                 "可用 BSAIPrismWeightsDownload 节点下载，或检查路径。"
             )
-        if resume_ckpt and not os.path.isfile(resume_ckpt):
-            raise FileNotFoundError(f"找不到 resume_ckpt：{resume_ckpt}")
+        if resume_ckpt_path and not os.path.isfile(resume_ckpt_path):
+            raise FileNotFoundError(f"找不到 resume_ckpt：{resume_ckpt_path}")
 
         bsa = BSAParams(
             enable_bsa=enable_bsa,
@@ -250,20 +296,20 @@ class BSAIPrismLoader:
             )))
         )
         key = model_manager.model_cache_key(
-            base_model_path, resume_ckpt, device, offload, bsa_hash
+            base_model_path, resume_ckpt_path, device, offload, bsa_hash
         )
 
         cached = model_manager.get_cached(key)
         if cached is not None:
-            _log(f"命中缓存模型（{base_model_path} / {resume_ckpt or 'base-only'}）")
+            _log(f"命中缓存模型（{base_model_path} / {resume_ckpt_path or 'base-only'}）")
             handle = PrismModelHandle(
-                key=key, base_model_path=base_model_path, resume_ckpt=resume_ckpt,
+                key=key, base_model_path=base_model_path, resume_ckpt=resume_ckpt_path,
                 device=device, offload=offload, bsa=bsa,
             )
             return (handle, f"cache-hit | device={device} offload={offload}")
 
         bridge, extras = model_manager.load_prism_model(
-            base_model_path, resume_ckpt, device, offload, bsa
+            base_model_path, resume_ckpt_path, device, offload, bsa
         )
         model_manager.cache_put(
             key,
@@ -273,7 +319,7 @@ class BSAIPrismLoader:
             ),
         )
         handle = PrismModelHandle(
-            key=key, base_model_path=base_model_path, resume_ckpt=resume_ckpt,
+            key=key, base_model_path=base_model_path, resume_ckpt=resume_ckpt_path,
             device=device, offload=offload, bsa=bsa,
         )
         return (
@@ -311,11 +357,11 @@ class BSAIPrismSampler:
                     "multiline": True,
                 }),
                 "resolution": (RESOLUTION_ORDER, {
-                    "default": "720p (720x1280)",
-                    "tooltip": "分辨率档位；custom 时使用下方 height/width/shift/tiling 值。",
+                    "default": "横板 720p (720×1280)",
+                    "tooltip": "分辨率档位；选 custom 自定义 时可手动调整下方宽高。",
                 }),
-                "height": ("INT", {"default": 480, "min": 256, "max": 2048, "step": 16}),
-                "width": ("INT", {"default": 848, "min": 448, "max": 4096, "step": 16}),
+                "width": ("INT", {"default": 1280, "min": 448, "max": 4096, "step": 16}),
+                "height": ("INT", {"default": 720, "min": 256, "max": 2048, "step": 16}),
                 "num_frames": ("INT", {
                     "default": 205, "min": 17, "max": 1024, "step": 4,
                     "tooltip": "生成帧数（像素空间）。自动对齐到 (n-1) % 4 == 0。",
@@ -358,10 +404,10 @@ class BSAIPrismSampler:
     FUNCTION = "sample"
     CATEGORY = "BSAI/Prism"
 
-    def _resolve_geometry(self, resolution, height, width, visual_shift, audio_shift,
+    def _resolve_geometry(self, resolution, width, height, visual_shift, audio_shift,
                           enable_vae_tiling, num_frames):
-        """档位预设覆盖几何与 shift；custom 用控件值。"""
-        if resolution == "custom":
+        """档位预设覆盖几何与 shift；custom 自定义 用控件值。"""
+        if resolution == "custom 自定义":
             return int(height), int(width), float(visual_shift), float(
                 audio_shift), bool(enable_vae_tiling)
         prof = RESOLUTION_PROFILES[resolution]
@@ -398,9 +444,9 @@ class BSAIPrismSampler:
         prompt,
         audio_prompt="",
         negative_prompt=DEFAULT_NEGATIVE_PROMPT,
-        resolution="720p (720x1280)",
-        height=480,
-        width=848,
+        resolution="横板 720p (720×1280)",
+        width=1280,
+        height=720,
         num_frames=205,
         fps=24.0,
         num_inference_steps=50,
@@ -424,7 +470,7 @@ class BSAIPrismSampler:
             )
 
         h, w, v_shift, a_shift, tiling = self._resolve_geometry(
-            resolution, height, width, visual_shift, audio_shift, enable_vae_tiling, num_frames
+            resolution, width, height, visual_shift, audio_shift, enable_vae_tiling, num_frames
         )
         # 高度/宽度对齐 16（Wan VAE 空间压缩 8 倍，check_inputs 要求 16 的倍数）
         h = self._snap(h, 16, "height")

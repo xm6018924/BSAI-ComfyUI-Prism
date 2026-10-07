@@ -112,6 +112,33 @@ ComfyUI/models/diffusers/BSAI-Prism/
 └── preview_beta/diffusion_pytorch_model.safetensors    # 65.3GB
 ```
 
+### 🧩 Model Overview
+
+Prism uses a **base + fine-tune** two-layer structure. You need **1 base + 1 checkpoint** to run inference.
+
+| Folder | Size | Role | Description |
+|--------|------|------|-------------|
+| **pretrained_models/MOVA-360p** | ~47 GB | 🏗️ Base (skeleton) | Required. Provides the model architecture: video_dit, audio_dit, VAE, text_encoder, etc. Think of it as the "house frame". |
+| **preview_alpha** | ~65 GB | 🎨 Fine-tune A | Choose one. First preview release, stable and reliable. The "standard finish". |
+| **preview_beta** | ~65 GB | 🎨 Fine-tune B | Choose one. Second preview release, typically higher quality and more cinematic. The "premium finish". |
+
+**Valid combinations:**
+- ✅ `MOVA-360p` + `preview_alpha` — works, recommended starting point
+- ✅ `MOVA-360p` + `preview_beta` — works, higher quality
+- ⚠️ `MOVA-360p` only (no fine-tune) — works but very poor quality, not recommended
+- ❌ `preview_alpha/beta` only (no base) — won't work at all
+
+**alpha vs beta — which to choose?**
+
+| Aspect | preview_alpha | preview_beta |
+|--------|---------------|--------------|
+| Version | 1st preview | 2nd preview |
+| Quality | Solid, reliable | Often more refined & cinematic |
+| Style | Realistic leaning | Can be more stylized / filmic |
+| Recommendation | Start here | Try when chasing best quality |
+
+> 💡 **Tip:** Both checkpoints share the same base. You can switch between alpha and beta in the dropdown without reloading the base model (it stays cached).
+
 ### 🚀 Quick Start
 
 1. Download weights (see above)
@@ -264,6 +291,33 @@ ComfyUI/models/diffusers/BSAI-Prism/
 ├── preview_alpha/diffusion_pytorch_model.safetensors   # 65.3GB
 └── preview_beta/diffusion_pytorch_model.safetensors    # 65.3GB
 ```
+
+### 🧩 模型说明
+
+Prism 采用 **基底 + 微调** 的双层结构。运行推理需要 **1 个基底 + 1 个微调权重**。
+
+| 目录 | 大小 | 角色 | 说明 |
+|------|------|------|------|
+| **pretrained_models/MOVA-360p** | ~47 GB | 🏗️ 基底（骨架） | 必须有。提供模型整体结构：video_dit、audio_dit、VAE、text_encoder 等。相当于"毛坯房"。 |
+| **preview_alpha** | ~65 GB | 🎨 微调版本 A | 二选一。第一代预览权重，稳定可靠。相当于"标准装修"。 |
+| **preview_beta** | ~65 GB | 🎨 微调版本 B | 二选一。第二代预览权重，画质更精细、更有电影感。相当于"轻奢装修"。 |
+
+**正确搭配：**
+- ✅ `MOVA-360p` + `preview_alpha` — 可用，推荐先试这个
+- ✅ `MOVA-360p` + `preview_beta` — 可用，质量更高
+- ⚠️ 只有 `MOVA-360p`（无微调） — 能跑但效果很差，不推荐
+- ❌ 只有 `preview_alpha/beta`（无基底） — 完全不能用
+
+**alpha 和 beta 怎么选？**
+
+| 对比项 | preview_alpha | preview_beta |
+|--------|---------------|--------------|
+| 版本 | 第一代预览 | 第二代预览 |
+| 画质 | 稳定、可靠 | 通常更精细、更有电影感 |
+| 风格 | 偏真实感 | 可能更有风格化/胶片感 |
+| 推荐 | 先试这个 | 追求最佳效果时再试 |
+
+> 💡 **小贴士：** 两个微调权重共用同一个基底。在下拉框切换 alpha/beta 时，基底会复用缓存，不需要重新加载。
 
 ### 🚀 快速开始
 
