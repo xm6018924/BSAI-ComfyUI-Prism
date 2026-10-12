@@ -28,7 +28,7 @@ class ResolutionProfile:
 
 RESOLUTION_PROFILES = {
     # --- 横板（Landscape）---
-    "横板 480p (480×848)": ResolutionProfile(
+    "横板 480p (848×480)": ResolutionProfile(
         name="480p",
         height=480,
         width=848,
@@ -38,7 +38,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=False,
         note="官方最低档位；小显存也可跑，建议开启 CPU offload。",
     ),
-    "横板 720p (720×1280)": ResolutionProfile(
+    "横板 720p (1280×720)": ResolutionProfile(
         name="720p",
         height=720,
         width=1280,
@@ -48,7 +48,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=False,
         note="官方推荐单 80GB 卡 + CPU offload 的档位。",
     ),
-    "横板 1080p (1072×1920)": ResolutionProfile(
+    "横板 1080p (1920×1072)": ResolutionProfile(
         name="1080p",
         height=1072,
         width=1920,
@@ -58,7 +58,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=True,
         note="官方推荐 4x80GB FSDP；单卡约需 80GB 显存，VAE 解码自动开 tiling。",
     ),
-    "横板 2K (1440×2560)": ResolutionProfile(
+    "横板 2K (2560×1440)": ResolutionProfile(
         name="2k",
         height=1440,
         width=2560,
@@ -69,7 +69,7 @@ RESOLUTION_PROFILES = {
         note="官方推荐 4+ x80GB FSDP；单卡基本不可行，谨慎使用。",
     ),
     # --- 竖版（Portrait）---
-    "竖板 480p (848×480)": ResolutionProfile(
+    "竖板 480p (480×848)": ResolutionProfile(
         name="480p",
         height=848,
         width=480,
@@ -79,7 +79,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=False,
         note="竖版最低档位；适合短视频/手机竖屏。",
     ),
-    "竖板 720p (1280×720)": ResolutionProfile(
+    "竖板 720p (720×1280)": ResolutionProfile(
         name="720p",
         height=1280,
         width=720,
@@ -89,7 +89,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=False,
         note="竖版 720p；适合手机竖屏观看。",
     ),
-    "竖板 1080p (1920×1072)": ResolutionProfile(
+    "竖板 1080p (1072×1920)": ResolutionProfile(
         name="1080p",
         height=1920,
         width=1072,
@@ -99,7 +99,7 @@ RESOLUTION_PROFILES = {
         vae_tiling=True,
         note="竖版 1080p；推荐多卡 FSDP。",
     ),
-    "竖板 2K (2560×1440)": ResolutionProfile(
+    "竖板 2K (1440×2560)": ResolutionProfile(
         name="2k",
         height=2560,
         width=1440,
@@ -124,14 +124,14 @@ RESOLUTION_PROFILES = {
 
 # 分辨率预设的显示顺序（下拉框展示顺序）
 RESOLUTION_ORDER = [
-    "横板 720p (720×1280)",
-    "横板 480p (480×848)",
-    "横板 1080p (1072×1920)",
-    "横板 2K (1440×2560)",
-    "竖板 720p (1280×720)",
-    "竖板 480p (848×480)",
-    "竖板 1080p (1920×1072)",
-    "竖板 2K (2560×1440)",
+    "横板 720p (1280×720)",
+    "横板 480p (848×480)",
+    "横板 1080p (1920×1072)",
+    "横板 2K (2560×1440)",
+    "竖板 720p (720×1280)",
+    "竖板 480p (480×848)",
+    "竖板 1080p (1072×1920)",
+    "竖板 2K (1440×2560)",
     "custom 自定义",
 ]
 

@@ -1,0 +1,730 @@
+{
+  "id": "3b8b2441-7849-43af-a537-6aca957fd4d2",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 11,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "BSAIPrismLoader",
+      "pos": [
+        63.34617609690615,
+        78.3857787416043
+      ],
+      "size": [
+        379.91796875,
+        582
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "prism_model",
+          "type": "BSAI_PRISM_MODEL",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "status",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BSAIPrismLoader"
+      },
+      "widgets_values": [
+        "MOVA-360p",
+        "preview_beta",
+        "cuda:0",
+        "cpu",
+        true,
+        0.75,
+        "4 4 4",
+        "4 4 4",
+        0.2,
+        true,
+        false,
+        false,
+        false,
+        0.88,
+        64,
+        "4 4 4",
+        false,
+        2,
+        false,
+        2,
+        false,
+        false
+      ],
+      "widgets_values_named": {
+        "base_model": "MOVA-360p",
+        "resume_ckpt": "preview_beta",
+        "device": "cuda:0",
+        "offload": "cpu",
+        "enable_bsa": true,
+        "bsa_sparsity": 0.75,
+        "bsa_chunk_3d_shape_q": "4 4 4",
+        "bsa_chunk_3d_shape_k": "4 4 4",
+        "bsa_cdf_threshold": 0.2,
+        "enable_ivpq_dynamic_block": true,
+        "enable_layer_adaptive_dynamic_block": false,
+        "sparse_high_noise_only": false,
+        "enable_bsa_v2a": false,
+        "bsa_v2a_sparsity": 0.88,
+        "bsa_v2a_audio_chunk_size": 64,
+        "bsa_v2a_chunk_3d_shape_k": "4 4 4",
+        "enable_audio_guidance": false,
+        "audio_boost_gamma": 2,
+        "enable_variance_guidance": false,
+        "variance_boost_gamma": 2,
+        "enable_taylor_sparse_attn": false,
+        "enable_rectified_sparse_attn": false
+      }
+    },
+    {
+      "id": 3,
+      "type": "BSAIPrismSampler",
+      "pos": [
+        473.9043996264867,
+        77.02217158290273
+      ],
+      "size": [
+        400,
+        644
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "prism_model",
+          "type": "BSAI_PRISM_MODEL",
+          "link": 3
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "video_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BSAIPrismSampler"
+      },
+      "widgets_values": [
+        "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
+        "",
+        "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指",
+        "横板 480p (848×480)",
+        848,
+        480,
+        121,
+        17,
+        30,
+        1,
+        7,
+        7,
+        917571781,
+        "randomize",
+        true,
+        256,
+        224,
+        true,
+        true,
+        "BSAI_Prism_v2"
+      ],
+      "widgets_values_named": {
+        "prompt": "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
+        "audio_prompt": "",
+        "negative_prompt": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指",
+        "resolution": "横板 480p (848×480)",
+        "width": 848,
+        "height": 480,
+        "num_frames": 121,
+        "fps": 17,
+        "num_inference_steps": 30,
+        "cfg_scale": 1,
+        "visual_shift": 7,
+        "audio_shift": 7,
+        "seed": 917571781,
+        "control_after_generate": "randomize",
+        "enable_vae_tiling": true,
+        "tile_sample_min_size": 256,
+        "tile_sample_stride": 224,
+        "remove_video_dit_after_switch": true,
+        "save_video": true,
+        "filename_prefix": "BSAI_Prism_v2"
+      }
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        -805.1820712965522,
+        77.38638526848545
+      ],
+      "size": [
+        840.3219545541957,
+        588.7334170596246
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "Qwen-Image-2.1_00002_.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "Qwen-Image-2.1_00002_.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 5,
+      "type": "CreateVideo",
+      "pos": [
+        905.6079325756446,
+        79.71318526428401
+      ],
+      "size": [
+        300,
+        150
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "slot_index": 0,
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "合成视频 17fps + 音轨",
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0"
+      },
+      "widgets_values": [
+        17,
+        "auto",
+        "sRGB",
+        "none"
+      ],
+      "widgets_values_named": {
+        "fps": 17,
+        "bit_depth": "auto",
+        "color_space": "sRGB",
+        "codec": "none"
+      },
+      "bgcolor": "rgba(0,0,0,0)"
+    },
+    {
+      "id": 6,
+      "type": "SaveVideo",
+      "pos": [
+        1261.7418114330922,
+        77.90946942754054
+      ],
+      "size": [
+        1039.4524753888372,
+        714.933696393031
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0"
+      },
+      "widgets_values": [
+        "BSAI_Prism_v2",
+        "auto",
+        "auto",
+        "auto"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "BSAI_Prism_v2",
+        "format": "auto",
+        "format.codec": "auto",
+        "codec": "auto"
+      },
+      "bgcolor": "rgba(0,0,0,0)"
+    },
+    {
+      "id": 7,
+      "type": "ShowText|pysssss",
+      "pos": [
+        271.120309572501,
+        1310.5097150871165
+      ],
+      "size": [
+        597.2820004894356,
+        464.3035204835787
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ShowText|pysssss"
+      }
+    },
+    {
+      "id": 8,
+      "type": "BSAI_H3_PromptTemplate",
+      "pos": [
+        -793.8433572973163,
+        857.5776904157469
+      ],
+      "size": [
+        490,
+        606
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "scene_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_4",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_5",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_6",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_7",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_8",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "ref_image_9",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "video_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "audio_1",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt_output (提示词输出)",
+          "type": "STRING",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "template_name (模板名称)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "generation_mode (生成模式)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "description (描述)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "video_duration (视频时长)",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "preview_file (预览文件)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "last_frame (视频最后一帧)",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "video_1_out (视频1直通)",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "audio_1_out (音频1直通)",
+          "type": "AUDIO",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BSAI_H3_PromptTemplate"
+      },
+      "widgets_values": [
+        "(None / 自定义 / Custom)",
+        "",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "template_select": "(None / 自定义 / Custom)",
+        "user_customization": "",
+        "narration": "",
+        "bsai_tpl_ui": ""
+      }
+    },
+    {
+      "id": 9,
+      "type": "BSAI_H3_DirectPrompt",
+      "pos": [
+        -270.93492047720724,
+        859.7396080762694
+      ],
+      "size": [
+        440,
+        530
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "prompt_output (提示词输出)",
+          "type": "STRING",
+          "links": [
+            10,
+            11
+          ]
+        },
+        {
+          "name": "template_name (模板名称)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "generation_mode (生成模式)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "description (描述)",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "video_duration (视频时长)",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "preview_file (预览文件)",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BSAI_H3_DirectPrompt"
+      },
+      "widgets_values": [
+        "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
+        "",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "prompt": "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
+        "user_customization": "",
+        "narration": "",
+        "bsai_direct_ui": ""
+      }
+    },
+    {
+      "id": 10,
+      "type": "ShowText|pysssss",
+      "pos": [
+        260.1805822794994,
+        859.891172224601
+      ],
+      "size": [
+        609.8941926081407,
+        394.63613976580166
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ShowText|pysssss"
+      },
+      "widgets_values": [
+        "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight."
+      ],
+      "widgets_values_named": {
+        "text_0": "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight."
+      }
+    }
+  ],
+  "links": [
+    [
+      3,
+      2,
+      0,
+      3,
+      0,
+      "BSAI_PRISM_MODEL"
+    ],
+    [
+      5,
+      4,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ],
+    [
+      7,
+      3,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      3,
+      1,
+      5,
+      1,
+      "AUDIO"
+    ],
+    [
+      9,
+      8,
+      0,
+      7,
+      0,
+      "STRING"
+    ],
+    [
+      10,
+      9,
+      0,
+      10,
+      0,
+      "STRING"
+    ],
+    [
+      11,
+      9,
+      0,
+      3,
+      2,
+      "STRING"
+    ],
+    [
+      6,
+      5,
+      0,
+      6,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Group",
+      "bounding": [
+        -808.8178066554253,
+        779.2571138324272,
+        1713.2801965754074,
+        1035.5233933634565
+      ],
+      "color": "#b58b2a",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.1918176537729406,
+      "offset": [
+        27.423365770469786,
+        44.84913524089893
+      ]
+    },
+    "qgn_navigation_groups": [],
+    "qgn_locked": false,
+    "frontendVersion": "1.55.14"
+  },
+  "extensions": {
+    "seed_widgets": {
+      "3": 12
+    }
+  },
+  "version": 0.4,
+  "seed_widgets": {
+    "3": 12
+  }
+}

@@ -171,6 +171,20 @@ class MOVAPipeline:
         else:
             latents = latents.to(device=device, dtype=dtype)
 
+        # BSAI-t2v: image=None 时纯噪声初始化，condition 全零（无首帧参考）
+        if image is None:
+            print("[BSAI Prism] [t2v] pure noise init: condition = zeros")
+            latent_condition = torch.zeros(
+                batch_size, num_channels_latents, num_latent_frames, latent_height, latent_width,
+                device=device, dtype=dtype,
+            )
+            # mask 必须是 temporal_scale_factor=4 通道（和正常 i2v 路径对齐），否则 patch_embedding 维度不匹配
+            mask_lat_size = torch.zeros(
+                batch_size, self.vae_scale_factor_temporal, num_latent_frames, latent_height, latent_width,
+                device=device, dtype=dtype,
+            )
+            return latents, torch.concat([mask_lat_size, latent_condition], dim=1)
+
         image = image.unsqueeze(2)
 
         if last_image is None:
@@ -355,7 +369,9 @@ class MOVAPipeline:
             self.video_vae.to(device)
 
         num_channels_latents = self.video_vae.config.z_dim
-        image = self.video_processor.preprocess(image, height=height, width=width).to(device, dtype=torch.float32)
+        # BSAI-t2v: image=None 时跳过 VAE 编码，纯噪声初始化
+        if image is not None:
+            image = self.video_processor.preprocess(image, height=height, width=width).to(device, dtype=torch.float32)
 
         latents, condition = self.prepare_latents(
             image, 1, num_channels_latents, height, width, num_frames,
@@ -473,8 +489,10 @@ class MOVAPipeline:
             self.video_vae.enable_tiling(**tiling_kwargs)
 
         video_latents = self.denormalize_video_latents(latents)
-        with torch.autocast("cuda", dtype=torch.bfloat16):
-            video = self.video_vae.decode(video_latents).sample
+        # BSAI-FIX: Wan2.1 VAE decoder 在 bf16 下高分辨率 latent 会溢出导致蓝紫色乱码，
+        # 跟 audio VAE 一样改用 fp32 decode。VAE 仅 0.2GB，fp32 额外开销可忽略。
+        with torch.autocast("cuda", dtype=torch.float32):
+            video = self.video_vae.decode(video_latents.to(dtype=torch.float32)).sample
         video = self.video_processor.postprocess_video(video, output_type="pil")
 
         if offload:

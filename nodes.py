@@ -339,9 +339,6 @@ class BSAIPrismSampler:
         return {
             "required": {
                 "prism_model": (PRISM_MODEL_TYPE, {}),
-                "image": ("IMAGE", {
-                    "tooltip": "参考图（i2v 首帧）。会按目标分辨率中心裁剪并缩放。",
-                }),
                 "prompt": ("STRING", {
                     "default": "A man with short gray hair plays a red electric guitar.",
                     "multiline": True,
@@ -357,7 +354,7 @@ class BSAIPrismSampler:
                     "multiline": True,
                 }),
                 "resolution": (RESOLUTION_ORDER, {
-                    "default": "横板 720p (720×1280)",
+                    "default": "横板 720p (1280×720)",
                     "tooltip": "分辨率档位；选 custom 自定义 时可手动调整下方宽高。",
                 }),
                 "width": ("INT", {"default": 1280, "min": 448, "max": 4096, "step": 16}),
@@ -395,7 +392,11 @@ class BSAIPrismSampler:
                 "save_video": ("BOOLEAN", {"default": True}),
                 "filename_prefix": ("STRING", {"default": "BSAI_Prism"}),
             },
-            "optional": {},
+            "optional": {
+                "image": ("IMAGE", {
+                    "tooltip": "参考图（i2v 首帧）。留空 = 文生视频（从黑图开始 denoise）。会按目标分辨率中心裁剪并缩放。",
+                }),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "AUDIO", "STRING")
@@ -440,11 +441,10 @@ class BSAIPrismSampler:
     def sample(
         self,
         prism_model: PrismModelHandle,
-        image,
         prompt,
         audio_prompt="",
         negative_prompt=DEFAULT_NEGATIVE_PROMPT,
-        resolution="横板 720p (720×1280)",
+        resolution="横板 720p (1280×720)",
         width=1280,
         height=720,
         num_frames=205,
@@ -460,6 +460,7 @@ class BSAIPrismSampler:
         remove_video_dit_after_switch=False,
         save_video=True,
         filename_prefix="BSAI_Prism",
+        image=None,
     ):
         from PIL import Image
 
@@ -487,10 +488,15 @@ class BSAIPrismSampler:
         )
 
         # 参考图：ComfyUI IMAGE [B,H,W,3] -> PIL
-        ref_np = image[0].cpu().numpy()
-        ref_np = (np.clip(ref_np, 0.0, 1.0) * 255.0).astype(np.uint8)
-        ref_img = Image.fromarray(ref_np).convert("RGB")
-        ref_img = self._crop_and_resize(ref_img, height=h, width=w)
+        if image is None:
+            # t2v: 纯噪声初始化（pipeline 内部 condition 全零）
+            _log("[t2v] image 未连接，纯噪声文生视频模式")
+            ref_img = None
+        else:
+            ref_np = image[0].cpu().numpy()
+            ref_np = (np.clip(ref_np, 0.0, 1.0) * 255.0).astype(np.uint8)
+            ref_img = Image.fromarray(ref_np).convert("RGB")
+            ref_img = self._crop_and_resize(ref_img, height=h, width=w)
 
         # 帧数对齐 (n-1) % 4 == 0
         raw_num_frames = int(num_frames)
