@@ -396,6 +396,15 @@ def load_prism_model(base_model_path, resume_ckpt, device, offload, bsa_params):
             _log(f"[BSAI Prism] 层自适应动态块：shallow(<{split}) 固定 / "
                  f"deep(>={split}) 动态，音频缓存源层={cache_src}")
 
+    # ---- T5 embed_tokens 安全修复（移植自 richservo/comfyui-mova）----
+    # diffusers/transformers from_pretrained 偶发将 encoder.embed_tokens 留为随机初始化，
+    # 需要手动从 shared.weight 拷贝。若 data_ptr 相同则说明已 tie 权重，跳过。
+    te = extras.get("text_encoder")
+    if te is not None and hasattr(te, "shared") and hasattr(te, "encoder"):
+        if te.encoder.embed_tokens.weight.data_ptr() != te.shared.weight.data_ptr():
+            te.encoder.embed_tokens.weight.data.copy_(te.shared.weight.data)
+            _log.info("[T5] 已从 shared.weight 拷贝 embed_tokens（修复随机初始化）")
+
     bridge.eval()
     _log(f"模型加载与配置完成，耗时 {time.time() - t0:.1f}s")
     return bridge, extras

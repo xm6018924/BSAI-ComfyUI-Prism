@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import folder_paths
+import comfy.model_management as mm
 
 from .bsa_config import (
     BSAParams,
@@ -245,6 +246,9 @@ class BSAIPrismLoader:
                 "BSAI Prism 需要 NVIDIA CUDA（flash-attn 依赖）。"
                 "请在 python_embeded_cuda 环境（torch+cu130）中运行 ComfyUI。"
             )
+
+        # 移植自 richservo/comfyui-mova：加载前释放 ComfyUI 管理的其它模型
+        mm.unload_all_models()
         if device in ("N/A", "") or not device.startswith("cuda"):
             raise ValueError(f"设备无效：{device}")
         dev_idx = int(device.split(":")[-1])
@@ -389,12 +393,24 @@ class BSAIPrismSampler:
                     "default": False,
                     "tooltip": "边界切换后释放高噪声专家 video_dit，节省显存（不可逆，仅内部释放）。",
                 }),
+                "audio_strength": ("FLOAT", {
+                    "default": 0.8, "min": 0.0, "max": 1.0, "step": 0.05,
+                    "tooltip": "音频注入强度（lip-sync）。1.0=完全保留输入音频，0.0=忽略音频从头生成。"
+                               "需连接 audio 输入才生效。",
+                }),
+                "auto_duration": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "根据输入音频长度自动计算帧数（需连接 audio 输入）。",
+                }),
                 "save_video": ("BOOLEAN", {"default": True}),
                 "filename_prefix": ("STRING", {"default": "BSAI_Prism"}),
             },
             "optional": {
                 "image": ("IMAGE", {
                     "tooltip": "参考图（i2v 首帧）。留空 = 文生视频（从黑图开始 denoise）。会按目标分辨率中心裁剪并缩放。",
+                }),
+                "audio": ("AUDIO", {
+                    "tooltip": "预生成音频（语音/音乐），用于 lip-sync 对口型。连接后配合 audio_strength 控制保留程度。",
                 }),
             },
         }
@@ -458,9 +474,12 @@ class BSAIPrismSampler:
         tile_sample_min_size=256,
         tile_sample_stride=192,
         remove_video_dit_after_switch=False,
+        audio_strength=0.8,
+        auto_duration=False,
         save_video=True,
         filename_prefix="BSAI_Prism",
         image=None,
+        audio=None,
     ):
         from PIL import Image
 
@@ -476,6 +495,15 @@ class BSAIPrismSampler:
         # 高度/宽度对齐 16（Wan VAE 空间压缩 8 倍，check_inputs 要求 16 的倍数）
         h = self._snap(h, 16, "height")
         w = self._snap(w, 16, "width")
+
+        # auto_duration: 根据输入音频长度自动计算帧数
+        if auto_duration and audio is not None:
+            audio_samples = audio["waveform"].shape[-1]
+            audio_sr = audio["sample_rate"]
+            duration = audio_samples / audio_sr
+            raw_frames = int(duration * fps)
+            num_frames = max(17, ((raw_frames - 1) // 4) * 4 + 1)
+            _log(f"auto_duration: 音频 {duration:.2f}s → {num_frames} 帧")
 
         _log(
             f"采样参数：{h}x{w} @ {fps}fps，{num_frames} 帧，{num_inference_steps} 步，"
@@ -511,31 +539,95 @@ class BSAIPrismSampler:
 
         torch.manual_seed(seed)
 
-        frames, audio = pipeline(
-            prompt=prompt,
-            image=ref_img,
-            audio_prompt=audio_prompt if audio_prompt.strip() else None,
-            negative_prompt=negative_prompt,
-            seed=seed,
-            height=h,
-            width=w,
-            num_frames=num_frames,
-            video_fps=fps,
-            num_inference_steps=num_inference_steps,
-            visual_shift=v_shift,
-            audio_shift=a_shift,
-            cfg_scale=cfg_scale,
-            remove_video_dit=remove_video_dit_after_switch,
-            enable_vae_tiling=tiling,
-            vae_tile_sample_min_size=tile_sample_min_size,
-            vae_tile_sample_stride=tile_sample_stride,
-        )
+        # ---- 音频注入（lip-sync，移植自 richservo/comfyui-mova）----
+        _orig_prepare_audio = None
+        _orig_set_pp = None
+        _clean_audio_latents = None
+        _audio_device = torch.device(prism_model.device)
+
+        if audio is not None:
+            import torchaudio
+
+            # ComfyUI AUDIO [B, C, T] → 单声道 waveform [1, 1, T]
+            waveform = audio["waveform"].to(_audio_device).float()
+            sr_in = audio["sample_rate"]
+            if waveform.shape[1] > 1:
+                waveform = waveform.mean(dim=1, keepdim=True)
+
+            target_sr = pipeline.audio_sample_rate
+            target_samples = int(target_sr * num_frames / fps)
+
+            if sr_in != target_sr:
+                waveform = torchaudio.functional.resample(waveform, sr_in, target_sr)
+            if waveform.shape[-1] < target_samples:
+                pad = torch.zeros(1, 1, target_samples - waveform.shape[-1], device=_audio_device)
+                waveform = torch.cat([waveform, pad], dim=-1)
+            elif waveform.shape[-1] > target_samples:
+                waveform = waveform[:, :, :target_samples]
+
+            # 通过 audio_vae 编码得到干净音频 latents
+            pipeline.audio_vae.to(_audio_device)
+            with torch.no_grad():
+                x_pad = pipeline.audio_vae.preprocess(waveform, sample_rate=target_sr)
+                x_pad = x_pad.to(dtype=pipeline.audio_vae.dtype)
+                enc_out = pipeline.audio_vae.encode(x_pad)
+                z = enc_out[0] if isinstance(enc_out, tuple) else enc_out
+                _clean_audio_latents = z.mode().float()
+            pipeline.audio_vae.to("cpu")
+            _log(f"音频注入：strength={audio_strength}，latents {_clean_audio_latents.shape}")
+
+            denoise_strength = max(1.0 - audio_strength, 0.001)
+
+            # Monkey-patch scheduler：注入 audio_denoising_strength
+            _orig_set_pp = pipeline.scheduler.set_pair_postprocess_by_name
+            def _patched_set_pp(name, **kwargs):
+                if name == "dual_sigma_shift":
+                    kwargs["audio_denoising_strength"] = denoise_strength
+                return _orig_set_pp(name, **kwargs)
+            pipeline.scheduler.set_pair_postprocess_by_name = _patched_set_pp
+
+            # Monkey-patch prepare_audio_latents：用编码后的 latents + 噪声替代纯随机噪声
+            _orig_prepare_audio = pipeline.prepare_audio_latents
+            def _patched_prepare_audio(a, bs, nc, ns, dt, dev, gen=None, latents=None):
+                pairs = pipeline.scheduler.get_pairs(source="sigmas")
+                first_sigma = pairs[0, 1].item()
+                noise = torch.randn_like(_clean_audio_latents)
+                injected = (1.0 - first_sigma) * _clean_audio_latents + first_sigma * noise
+                return injected.to(device=dev, dtype=dt)
+            pipeline.prepare_audio_latents = _patched_prepare_audio
+
+        try:
+            frames, audio_out = pipeline(
+                prompt=prompt,
+                image=ref_img,
+                audio_prompt=audio_prompt if audio_prompt.strip() else None,
+                negative_prompt=negative_prompt,
+                seed=seed,
+                height=h,
+                width=w,
+                num_frames=num_frames,
+                video_fps=fps,
+                num_inference_steps=num_inference_steps,
+                visual_shift=v_shift,
+                audio_shift=a_shift,
+                cfg_scale=cfg_scale,
+                remove_video_dit=remove_video_dit_after_switch,
+                enable_vae_tiling=tiling,
+                vae_tile_sample_min_size=tile_sample_min_size,
+                vae_tile_sample_stride=tile_sample_stride,
+            )
+        finally:
+            # 恢复 monkey-patch
+            if _orig_prepare_audio is not None:
+                pipeline.prepare_audio_latents = _orig_prepare_audio
+            if _orig_set_pp is not None:
+                pipeline.scheduler.set_pair_postprocess_by_name = _orig_set_pp
 
         # ---- 转 ComfyUI 格式 ----
         images = torch.from_numpy(
             np.stack([np.array(f) for f in frames[0]], axis=0).astype(np.float32) / 255.0
         )
-        audio_wav = audio[0].detach().cpu().float()  # [1, T]（DAC 单声道）
+        audio_wav = audio_out[0].detach().cpu().float()  # [1, T]（DAC 单声道）
         # ComfyUI 标准 AUDIO 格式：[batch, channels, samples]
         if audio_wav.dim() == 1:
             audio_wav = audio_wav.unsqueeze(0).unsqueeze(0)  # [T] -> [1, 1, T]
@@ -548,8 +640,9 @@ class BSAIPrismSampler:
 
         video_path = ""
         videos_ui = []
+        mm.soft_empty_cache()
         if save_video:
-            audio_save = audio[0].cpu().squeeze()
+            audio_save = audio_out[0].cpu().squeeze()
             full_folder, fname, counter, subfolder, _ = folder_paths.get_save_image_path(
                 filename_prefix, folder_paths.get_output_directory(), images.shape[1], images.shape[2]
             )
