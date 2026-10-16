@@ -31,13 +31,15 @@
 
 BSAI ComfyUI Prism 是基于 **Prism** 模型打造的 ComfyUI 插件。Prism 是由腾讯混元、复旦大学、浙江大学联合发布的原生联合视频-音频生成扩散模型（arXiv:2610.05416），其核心创新是 **BSA（Block Sparse Attention，动态块稀疏注意力）**，相比全注意力实现了 **2.5 倍训练加速**，同时质量更优。
 
-本插件将官方 Prism 推理运行时封装为 5 个易用的 ComfyUI 节点，完整暴露 BSA 全部参数并内置互斥校验。
+本插件将官方 Prism 推理运行时封装为 7+ 个易用的 ComfyUI 节点，完整暴露 BSA 全部参数并内置互斥校验，并支持 **音频注入 / Lip-sync 对口型** 和 **Turbo 加速（Cache-DiT + CFG Rescale）**。
 
 ### ✨ 特性
 
 - 🎬 **原生联合视频-音频生成** — 视频和音频在同一去噪流水线中同步生成
 - ⚡ **动态块稀疏注意力 (BSA)** — IVPQ 自适应块形状、Top-k + Top-p 混合稀疏
-- 🎯 **5 个 ComfyUI 节点** — 模型加载、采样、音视频合成、权重下载、模型卸载
+- 🎯 **7+ 个 ComfyUI 节点** — 模型加载、采样、Turbo 加速、音视频合成、权重下载、模型卸载
+- 🗣️ **音频注入 / Lip-sync 对口型** — 外部 TTS 音频注入采样，自动匹配唇形
+- 🏃 **Turbo 加速节点** — Cache-DiT 块级缓存 + CFG Rescale 保质 + 自适应跳步
 - 📐 **分辨率档位预设** — 480p / 720p / 1080p / 2K，自动配置 shift 和 VAE tiling
 - 💾 **智能显存管理** — CPU offload、VAE 分块解码、模型缓存、切换后释放专家
 - 🔊 **结构化音频提示词** — 支持 `<music> <sfx> <speech> <text> <lyrics>` 标签
@@ -48,7 +50,9 @@ BSAI ComfyUI Prism 是基于 **Prism** 模型打造的 ComfyUI 插件。Prism �
 | 节点 | 说明 |
 |------|------|
 | **BSAIPrismLoader** | 加载 MOVA 基底 + preview 检查点，完整 BSA 配置 |
-| **BSAIPrismSampler** | 参考图 + 文本 → 视频 + 音频，完整采样控制 |
+| **BSAIPrismSampler** | 参考图 + 文本 → 视频 + 音频，支持音频注入/Lip-sync |
+| **BSAIPrismTurboOptimizer** | Cache-DiT 块级缓存优化器（加速采样） |
+| **BSAIPrismTurboSampler** | Turbo 采样器：CFG Rescale 保质 + 自适应跳步 |
 | **BSAIPrismVideoEncode** | IMAGE + AUDIO → MP4（独立音视频合成） |
 | **BSAIPrismWeightsDownload** | 选择性权重下载，支持 hf-mirror 镜像 |
 | **BSAIPrismUnload** | 释放 GPU 中全部模型缓存 |
@@ -69,7 +73,7 @@ BSAI ComfyUI Prism 是基于 **Prism** 模型打造的 ComfyUI 插件。Prism �
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/BSAI-Official/BSAI-ComfyUI-Prism.git
+git clone https://github.com/xm6018924/BSAI-ComfyUI-Prism.git
 ```
 
 重启 ComfyUI。节点位于菜单 **BSAI/Prism** 下。
@@ -155,6 +159,26 @@ Continuous <sfx>rhythmic percussive drum beats</sfx>.
 低沉有节奏的男性发声：<speech>hm, ooh, ah, ha-ya</speech>.
 ```
 
+### 🗣️ Lip-sync 音频注入
+
+本插件支持将外部 TTS 生成的语音注入采样过程，实现人物对口型效果：
+
+1. 使用任意 TTS 节点（如 IndexTTS、CosyVoice 等）生成语音，输出为 `AUDIO` 类型
+2. 将 AUDIO 连接到 `BSAIPrismSampler` 的 `audio` 可选输入
+3. 调整 `audio_strength`（默认 0.8）控制音频对画面唇形的影响强度
+4. 开启 `auto_duration` 可根据音频长度自动计算所需帧数
+
+> 💡 **提示：** 音频注入通过 monkey-patch scheduler 的 `prepare_audio_latents` 实现，将干净音频 latents 与噪声按 `(1-σ)` 比例混合，使模型在去噪过程中"听"到目标语音，从而生成匹配的口型动作。
+
+### 🏃 Turbo 加速
+
+使用 Turbo 节点可显著提升采样速度：
+
+- **BSAIPrismTurboOptimizer**：对 transformer 做 Cache-DiT 块级缓存，输入差异小时直接复用上一步输出
+- **BSAIPrismTurboSampler**：加入 CFG Rescale 保质 + 自适应跳步，步数可从 50 步压缩到 20-30 步
+
+使用方式：`Loader → TurboOptimizer → TurboSampler → 输出`
+
 ### ⚙️ 参数速查
 
 | 档位 | 分辨率 (高×宽) | visual_shift | audio_shift | VAE 分块 | 推荐配置 |
@@ -186,6 +210,8 @@ BSA 稀疏率：`0.93`（最快）→ `0.85` → `0.75`（官方默认，均衡�
 - [x] 单卡加载 / 采样 / 合成 / 下载 / 卸载节点
 - [x] BSA 全参数透出（含互斥校验）
 - [x] 分辨率档位预设 + 自动 shift/tiling
+- [x] 音频注入 / Lip-sync 对口型支持
+- [x] Turbo 加速节点（Cache-DiT + CFG Rescale）
 - [ ] FSDP 多卡 1080p/2K 推理
 - [ ] XPU/CPU VAE 解码路由（多硬件协调）
 - [ ] Preview 检查点热切换（alpha ↔ beta 不重载基底）
@@ -211,13 +237,15 @@ BSA 稀疏率：`0.93`（最快）→ `0.85` → `0.75`（官方默认，均衡�
 
 BSAI ComfyUI Prism is a ComfyUI plugin built on top of the **Prism** model — a native joint video-audio generation diffusion model jointly developed by Tencent Hunyuan, Fudan University, and Zhejiang University (arXiv:2610.05416). Prism's core innovation is **BSA (Block Sparse Attention)**, a dynamic sparse attention mechanism that achieves **2.5× training speedup** with improved quality compared to full attention.
 
-This plugin wraps the official Prism inference runtime into 5 easy-to-use ComfyUI nodes, exposing the full BSA parameter space with mutual-exclusion validation.
+This plugin wraps the official Prism inference runtime into 7+ easy-to-use ComfyUI nodes, exposing the full BSA parameter space with mutual-exclusion validation. It also supports **audio injection / lip-sync** and **Turbo acceleration (Cache-DiT + CFG Rescale)**.
 
 ### ✨ Features
 
 - 🎬 **Native Video-Audio Joint Generation** — Video and audio generated simultaneously in a single denoising pipeline
 - ⚡ **Block Sparse Attention (BSA)** — Dynamic sparse attention with IVPQ adaptive block shapes, Top-k + Top-p hybrid sparsity
-- 🎯 **5 ComfyUI Nodes** — Model loader, sampler, video encoder, weight downloader, model unloader
+- 🎯 **7+ ComfyUI Nodes** — Model loader, sampler, turbo optimizer, turbo sampler, video encoder, weight downloader, model unloader
+- 🗣️ **Audio Injection / Lip-sync** — Inject external TTS audio into sampling for synchronized lip movements
+- 🏃 **Turbo Acceleration** — Cache-DiT block caching + CFG Rescale quality preservation + adaptive step skipping
 - 📐 **Resolution Presets** — 480p / 720p / 1080p / 2K with automatic shift & VAE tiling configuration
 - 💾 **Smart Memory Management** — CPU offload, VAE tiling, model caching, expert freeing after switch
 - 🔊 **Structured Audio Prompts** — Support `<music> <sfx> <speech> <text> <lyrics>` tags
@@ -228,7 +256,9 @@ This plugin wraps the official Prism inference runtime into 5 easy-to-use ComfyU
 | Node | Description |
 |------|-------------|
 | **BSAIPrismLoader** | Load MOVA base + preview checkpoint, full BSA configuration |
-| **BSAIPrismSampler** | Reference image + text → video + audio with full sampling control |
+| **BSAIPrismSampler** | Reference image + text → video + audio, supports audio injection/lip-sync |
+| **BSAIPrismTurboOptimizer** | Cache-DiT block-level cache optimizer (speeds up sampling) |
+| **BSAIPrismTurboSampler** | Turbo sampler: CFG Rescale quality + adaptive step skipping |
 | **BSAIPrismVideoEncode** | IMAGE + AUDIO → MP4 (standalone video encoding) |
 | **BSAIPrismWeightsDownload** | Selective weight download with hf-mirror support |
 | **BSAIPrismUnload** | Release all model cache from GPU memory |
@@ -249,7 +279,7 @@ This plugin wraps the official Prism inference runtime into 5 easy-to-use ComfyU
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/BSAI-Official/BSAI-ComfyUI-Prism.git
+git clone https://github.com/xm6018924/BSAI-ComfyUI-Prism.git
 ```
 
 Then restart ComfyUI. Nodes are located under **BSAI/Prism** menu.
@@ -335,6 +365,26 @@ A traffic police officer on a sunlit city street, directing cars with dynamic mo
 Deep rhythmic male vocalizations: <speech>hm, ooh, ah, ha-ya</speech>.
 ```
 
+### 🗣️ Lip-sync Audio Injection
+
+This plugin supports injecting external TTS-generated speech into the sampling process for synchronized lip movements:
+
+1. Use any TTS node (e.g., IndexTTS, CosyVoice) to generate speech as `AUDIO` output
+2. Connect the AUDIO output to the optional `audio` input of `BSAIPrismSampler`
+3. Adjust `audio_strength` (default 0.8) to control how strongly the audio drives lip movement
+4. Enable `auto_duration` to automatically calculate frame count from audio length
+
+> 💡 **Tip:** Audio injection works by monkey-patching the scheduler's `prepare_audio_latents`, mixing clean audio latents with noise at `(1-σ)` ratio, so the model "hears" the target speech during denoising and generates matching lip movements.
+
+### 🏃 Turbo Acceleration
+
+Use Turbo nodes to significantly speed up sampling:
+
+- **BSAIPrismTurboOptimizer**: Cache-DiT block-level caching — reuses previous block output when input difference is small
+- **BSAIPrismTurboSampler**: CFG Rescale quality preservation + adaptive step skipping, reducing steps from 50 to 20-30
+
+Usage: `Loader → TurboOptimizer → TurboSampler → output`
+
 ### ⚙️ Parameter Reference
 
 | Preset | Resolution (H×W) | visual_shift | audio_shift | VAE Tiling | Recommendation |
@@ -366,6 +416,8 @@ Negative Prompt → UMT5 → Embeddings ─┘        │
 - [x] Single-GPU load / sample / encode / download / unload nodes
 - [x] Full BSA parameter exposure with mutual-exclusion validation
 - [x] Resolution presets with automatic shift & tiling
+- [x] Audio injection / lip-sync support
+- [x] Turbo acceleration nodes (Cache-DiT + CFG Rescale)
 - [ ] FSDP multi-GPU 1080p/2K inference
 - [ ] XPU/CPU VAE decode routing (multi-hardware coordination)
 - [ ] Preview checkpoint hot-swap (alpha ↔ beta without reloading base)
@@ -388,6 +440,6 @@ Negative Prompt → UMT5 → Embeddings ─┘        │
 
 **Made with ❤️ by BSAI Team**
 
-[BSAI 百声AI](https://github.com/BSAI-Official) · ComfyUI 整合包
+[BSAI-ComfyUI-Prism](https://github.com/xm6018924/BSAI-ComfyUI-Prism) · ComfyUI 整合包
 
 </div>

@@ -173,5 +173,9 @@ output/
 *.wav
 *.mp3
 
+# Backup files
+*.bak
+*.bak.*
+
 # Note: This is a plugin repository; model files are stored in
 # ComfyUI/models/diffusers/BSAI-Prism/ (outside the plugin directory).
