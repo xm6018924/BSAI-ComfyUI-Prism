@@ -113,18 +113,18 @@ class _CacheDiTBlock(torch.nn.Module):
 
 
 def _apply_cache_dit(bridge, enable=True, fn=1, bn=1, rdt=0.24, mc=3):
-    """给 bridge 的 fusion_blocks 和 remaining_video_blocks 套上 Cache-DiT 代理。"""
+    """Wrap the bridge's fusion_blocks and remaining_video_blocks with Cache-DiT proxies."""
     if enable:
         if getattr(bridge, "_bsai_cache_dit_on", False):
-            return "Cache-DiT 已生效"
-        # 保存原始 block 列表
+            return "Cache-DiT already active"
+        # Save the original block lists
         bridge._orig_fusion_blocks = list(bridge.fusion_blocks)
         bridge._orig_remaining_blocks = list(bridge.remaining_video_blocks)
 
         n_fusion = len(bridge._orig_fusion_blocks)
         n_remaining = len(bridge._orig_remaining_blocks)
 
-        # 包装 fusion blocks
+        # Wrap fusion blocks
         wrapped_fusion = []
         for i, blk in enumerate(bridge._orig_fusion_blocks):
             is_first = i < fn
@@ -132,7 +132,7 @@ def _apply_cache_dit(bridge, enable=True, fn=1, bn=1, rdt=0.24, mc=3):
             wrapped_fusion.append(_CacheDiTBlock(blk, fn=is_first, bn=is_last, rdt=rdt, mc=mc))
         bridge.fusion_blocks = torch.nn.ModuleList(wrapped_fusion)
 
-        # 包装 remaining blocks
+        # Wrap remaining blocks
         wrapped_remaining = []
         for i, blk in enumerate(bridge._orig_remaining_blocks):
             is_first = i < fn
@@ -147,8 +147,8 @@ def _apply_cache_dit(bridge, enable=True, fn=1, bn=1, rdt=0.24, mc=3):
             bridge.fusion_blocks = torch.nn.ModuleList(bridge._orig_fusion_blocks)
             bridge.remaining_video_blocks = torch.nn.ModuleList(bridge._orig_remaining_blocks)
             bridge._bsai_cache_dit_on = False
-            return "Cache-DiT 已关闭"
-        return "Cache-DiT 未启用"
+            return "Cache-DiT disabled"
+        return "Cache-DiT not enabled"
 
 
 class BSAIPrismTurboOptimizer:
@@ -165,41 +165,41 @@ class BSAIPrismTurboOptimizer:
                 "prism_model": (PRISM_MODEL_TYPE, {}),
                 "enable_torch_compile": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "对 transformer forward 做 torch.compile。注意：BSA 自定义 Triton kernel 在 PyTorch 2.13 + sm_120 下编译可能失败。默认关闭，靠 Cache-DiT + CFG Rescale 加速。",
+                    "tooltip": "torch.compile on the transformer forward. Note: the custom BSA Triton kernels may fail to compile on PyTorch 2.13 + sm_120. Off by default; rely on Cache-DiT + CFG Rescale instead.",
                 }),
                 "compile_mode": (["default", "reduce-overhead", "max-autotune"], {
                     "default": "default",
-                    "tooltip": "default = 不用 CUDA graphs（兼容 cudaMallocAsync）；reduce-overhead = CUDA graphs 最快但和 --cuda-malloc 冲突；max-autotune = 最极致优化。",
+                    "tooltip": "default = no CUDA graphs (compatible with cudaMallocAsync); reduce-overhead = CUDA graphs, fastest but conflicts with --cuda-malloc; max-autotune = most aggressive optimization.",
                 }),
                 "compile_dynamic": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "dynamic=True 支持可变 shape（更慢但更灵活）；False 时固定 shape 编译最快。分辨率固定时选 False。",
+                    "tooltip": "dynamic=True supports variable shapes (slower but more flexible); False compiles for a fixed shape (fastest). Choose False when the resolution is fixed.",
                 }),
                 # ---- Cache-DiT ----
                 "enable_cache_dit": ("BOOLEAN", {
                     "default": True,
-                    "tooltip": "Cache-DiT 块级缓存（SGLang 验证 7.4x 加速）。输入变化小时跳过 block 重算。",
+                    "tooltip": "Cache-DiT block-level caching (validated 7.4x speedup by SGLang). Skips block recomputation when the input changes little.",
                 }),
                 "cache_dit_fn": ("INT", {
                     "default": 1, "min": 0, "max": 10,
-                    "tooltip": "前 N 个 block 总是计算（缓存不生效）。默认 1。",
+                    "tooltip": "Always compute the first N blocks (cache disabled). Default 1.",
                 }),
                 "cache_dit_bn": ("INT", {
                     "default": 1, "min": 0, "max": 10,
-                    "tooltip": "后 N 个 block 总是计算。默认 1。",
+                    "tooltip": "Always compute the last N blocks. Default 1.",
                 }),
                 "cache_dit_rdt": ("FLOAT", {
                     "default": 0.24, "min": 0.05, "max": 1.0, "step": 0.01,
-                    "tooltip": "残差差异阈值。越小越严格（更多重算，质量更好）；越大越激进（更多跳步，更快）。默认 0.24。",
+                    "tooltip": "Residual difference threshold. Smaller = stricter (more recompute, better quality); larger = more aggressive (more skips, faster). Default 0.24.",
                 }),
                 "cache_dit_mc": ("INT", {
                     "default": 3, "min": 1, "max": 10,
-                    "tooltip": "最大连续缓存步数。超过后强制重算。默认 3。",
+                    "tooltip": "Maximum consecutive cached steps; after that a recompute is forced. Default 3.",
                 }),
-                # ---- 量化 ----
+                # ---- Quantization ----
                 "quantize_mode": (["none", "float8_dynamic", "int8_dynamic", "int4_weight_only", "int4_float8_dynamic"], {
                     "default": "none",
-                    "tooltip": "float8_dynamic = W8A8 fp8，显存减半；int4_weight_only = W4A16，4bit权重显存1/4，激活不压缩，质量最稳；int4_float8_dynamic = W4A8，4bit权重+fp8激活，Blackwell 最大加速。",
+                    "tooltip": "float8_dynamic = W8A8 fp8, halves VRAM; int4_weight_only = W4A16, 4-bit weights use 1/4 VRAM, activations uncompressed, best quality; int4_float8_dynamic = W4A8, 4-bit weights + fp8 activations, maximum Blackwell speedup.",
                 }),
             },
         }
@@ -217,28 +217,28 @@ class BSAIPrismTurboOptimizer:
                  quantize_mode="none"):
         loaded = model_manager.get_cached(prism_model.key)
         if loaded is None:
-            raise RuntimeError("模型缓存丢失，请重新执行加载节点。")
+            raise RuntimeError("Model cache lost; re-run the loader node.")
 
         bridge = loaded.bridge
         status_parts = []
 
         if enable_torch_compile:
-            # 检查是否已经编译过
+            # Check whether compilation already happened
             if getattr(bridge, "_bsai_turbo_compiled", False):
-                status_parts.append("torch.compile 已生效（缓存）")
+                status_parts.append("torch.compile active (cached)")
             else:
                 try:
-                    _log(f"[Turbo] 开始 torch.compile（mode={compile_mode}, dynamic={compile_dynamic}）...")
-                    # 检测 cudaMallocAsync：reduce-overhead (CUDA graphs) 不兼容
+                    _log(f"[Turbo] Starting torch.compile (mode={compile_mode}, dynamic={compile_dynamic})...")
+                    # Detect cudaMallocAsync: reduce-overhead (CUDA graphs) is incompatible
                     alloc_backend = os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "")
                     using_async = "backend:cudaMallocAsync" in alloc_backend
                     if compile_mode == "reduce-overhead" and using_async:
-                        _log("[Turbo] 检测到 cudaMallocAsync，自动降级 compile_mode 为 default（CUDA graphs 不兼容）")
+                        _log("[Turbo] cudaMallocAsync detected; downgrading compile_mode to default (CUDA graphs incompatible)")
                         compile_mode = "default"
-                        status_parts.append("cudaMallocAsync 检测到，CUDA graphs 已禁用")
-                    # 只编译 transformer 的 forward，不碰 VAE/text_encoder
-                    # block offload 模式下每个 block 单独搬移，compile 整桥可能有问题
-                    # 我们 wrap bridge.forward 而不是 bridge 本身
+                        status_parts.append("cudaMallocAsync detected; CUDA graphs disabled")
+                    # Compile only the transformer forward; do not touch VAE/text_encoder.
+                    # With block offload each block is moved separately, so compiling the whole bridge may misbehave.
+                    # We wrap bridge.forward rather than the bridge itself.
                     original_forward = bridge.forward
 
                     compiled = torch.compile(
@@ -251,23 +251,23 @@ class BSAIPrismTurboOptimizer:
                     bridge.forward = compiled
                     bridge._bsai_turbo_compiled = True
                     status_parts.append(f"torch.compile OK (mode={compile_mode})")
-                    _log("[Turbo] torch.compile 包装完成，首次采样会触发编译（较慢）")
+                    _log("[Turbo] torch.compile wrapped; first sampling run triggers compilation (slower)")
                 except Exception as e:
-                    status_parts.append(f"torch.compile 失败，回退 eager: {e}")
-                    _log(f"[Turbo] torch.compile 失败: {e}")
+                    status_parts.append(f"torch.compile failed, falling back to eager: {e}")
+                    _log(f"[Turbo] torch.compile failed: {e}")
                     if hasattr(bridge, "_original_forward"):
                         bridge.forward = bridge._original_forward
                         bridge._bsai_turbo_compiled = False
         else:
-            # 如果之前编译过，恢复原始 forward
+            # If it was compiled before, restore the original forward
             if getattr(bridge, "_bsai_turbo_compiled", False):
                 bridge.forward = bridge._original_forward
                 bridge._bsai_turbo_compiled = False
-                status_parts.append("已恢复 eager 模式")
+                status_parts.append("Restored eager mode")
             else:
-                status_parts.append("torch.compile 未启用")
+                status_parts.append("torch.compile not enabled")
 
-        # ---- Cache-DiT 块级缓存 ----
+        # ---- Cache-DiT block-level cache ----
         try:
             cd_status = _apply_cache_dit(
                 bridge, enable=enable_cache_dit,
@@ -276,10 +276,10 @@ class BSAIPrismTurboOptimizer:
             )
             status_parts.append(cd_status)
         except Exception as e:
-            status_parts.append(f"Cache-DiT 失败: {e}")
-            _log(f"[Turbo] Cache-DiT 失败: {e}")
+            status_parts.append(f"Cache-DiT failed: {e}")
+            _log(f"[Turbo] Cache-DiT failed: {e}")
 
-        # ---- torchao 量化 ----
+        # ---- torchao quantization ----
         if quantize_mode != "none":
             try:
                 from torchao.quantization.quant_api import quantize_
@@ -314,15 +314,15 @@ class BSAIPrismTurboOptimizer:
                         return False
 
                     quantize_(bridge, qcfg, _filter_fn)
-                    # 统计量化了多少 Linear
+                    # Count how many Linear layers were quantized
                     for name, mod in bridge.named_modules():
                         if isinstance(mod, torch.nn.Linear):
                             n_quantized[0] += 1
-                    status_parts.append(f"{qname} OK ({n_quantized[0]} Linear 层)")
-                    _log(f"[Turbo] {qname} 量化完成，{n_quantized[0]} 层")
+                    status_parts.append(f"{qname} OK ({n_quantized[0]} Linear layers)")
+                    _log(f"[Turbo] {qname} quantized, {n_quantized[0]} layers")
             except Exception as e:
-                status_parts.append(f"量化失败: {e}")
-                _log(f"[Turbo] 量化失败: {e}")
+                status_parts.append(f"Quantization failed: {e}")
+                _log(f"[Turbo] quantization failed: {e}")
 
         return (prism_model, " | ".join(status_parts))
 
@@ -373,7 +373,7 @@ class BSAIPrismTurboSampler:
                 "audio_prompt": ("STRING", {"default": "", "multiline": True}),
                 "negative_prompt": ("STRING", {"default": DEFAULT_NEGATIVE_PROMPT, "multiline": True}),
                 "resolution": (RESOLUTION_ORDER, {
-                    "default": "横板 480p (848×480)",
+                    "default": "Landscape 480p (848x480)",
                 }),
                 "width": ("INT", {"default": 848, "min": 448, "max": 4096, "step": 16}),
                 "height": ("INT", {"default": 480, "min": 256, "max": 2048, "step": 16}),
@@ -384,18 +384,18 @@ class BSAIPrismTurboSampler:
                 "visual_shift": ("FLOAT", {"default": 3.0, "min": 1.0, "max": 20.0, "step": 0.5}),
                 "audio_shift": ("FLOAT", {"default": 3.0, "min": 1.0, "max": 20.0, "step": 0.5}),
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0x7FFFFFFF, "step": 1}),
-                # ---- Turbo 专属参数 ----
+                # ---- Turbo-specific params ----
                 "cfg_rescale": ("FLOAT", {
                     "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05,
-                    "tooltip": "CFG Rescale 强度。0=关闭（原始CFG）；0.5=标准 rescale（推荐）；1.0=完全 rescale。防止高 CFG 过饱和。",
+                    "tooltip": "CFG Rescale strength. 0 = off (raw CFG); 0.5 = standard rescale (recommended); 1.0 = full rescale. Prevents oversaturation at high CFG.",
                 }),
                 "adaptive_step_skip": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "自适应跳步：当连续两步预测变化很小时，跳过负向 CFG 分支（省一半前向时间）。质量略降但速度大幅提升。",
+                    "tooltip": "Adaptive step skip: when consecutive predictions change little, skip the negative CFG branch (halves forward time). Slight quality drop but a large speedup.",
                 }),
                 "step_skip_threshold": ("FLOAT", {
                     "default": 0.02, "min": 0.001, "max": 0.2, "step": 0.001,
-                    "tooltip": "预测变化阈值。低于此值认为预测已收敛，可跳步。",
+                    "tooltip": "Prediction-change threshold. Below this, the prediction is considered converged and the step is skipped.",
                 }),
                 "enable_vae_tiling": ("BOOLEAN", {"default": False}),
                 "tile_sample_min_size": ("INT", {"default": 256, "min": 64, "max": 1024, "step": 32}),
@@ -421,7 +421,7 @@ class BSAIPrismTurboSampler:
         prompt,
         audio_prompt="",
         negative_prompt=DEFAULT_NEGATIVE_PROMPT,
-        resolution="横板 480p (848×480)",
+        resolution="Landscape 480p (848x480)",
         width=848,
         height=480,
         num_frames=121,
@@ -446,10 +446,10 @@ class BSAIPrismTurboSampler:
 
         loaded = model_manager.get_cached(prism_model.key)
         if loaded is None:
-            raise RuntimeError("模型缓存丢失，请重新执行加载节点。")
+            raise RuntimeError("Model cache lost; re-run the loader node.")
 
-        # 分辨率档位解析
-        if resolution == "custom 自定义":
+        # Resolve the resolution tier
+        if resolution == "Custom":
             h, w = int(height), int(width)
             v_shift, a_shift = float(visual_shift), float(audio_shift)
             tiling = bool(enable_vae_tiling)
@@ -463,7 +463,7 @@ class BSAIPrismTurboSampler:
         w = _snap(w, 16, "width")
 
         _log(
-            f"[Turbo] 采样：{h}x{w} @ {fps}fps，{num_frames}帧，{num_inference_steps}步，"
+            f"[Turbo] sampling: {h}x{w} @ {fps}fps, {num_frames} frames, {num_inference_steps} steps, "
             f"cfg={cfg_scale} rescale={cfg_rescale} shift=({v_shift},{a_shift}) "
             f"adaptive_skip={adaptive_step_skip} seed={seed}"
         )
@@ -474,7 +474,7 @@ class BSAIPrismTurboSampler:
 
         # 参考图
         if image is None:
-            _log("[Turbo] image 未连接，纯噪声 t2v 模式")
+            _log("[Turbo] image not connected; pure-noise t2v mode")
             ref_img = None
         else:
             ref_np = image[0].cpu().numpy()
@@ -638,7 +638,7 @@ class BSAIPrismTurboSampler:
             torch.cuda.empty_cache()
 
         if skipped_count > 0:
-            _log(f"[Turbo] 自适应跳步：跳过 {skipped_count}/{total_steps} 步负向分支")
+            _log(f"[Turbo] adaptive step skip: skipped {skipped_count}/{total_steps} negative branches")
 
         # ---- Phase 4: VAE decode（fp32，与主管线一致）----
         if offload:
@@ -707,7 +707,7 @@ class BSAIPrismTurboSampler:
                 "subfolder": "BSAI_Prism",
                 "type": "output",
             }]
-            _log(f"[Turbo] 已保存：{video_path}")
+            _log(f"[Turbo] saved: {video_path}")
 
         return {"ui": {"videos": videos_ui}, "result": (images, audio_dict, video_path)}
 
@@ -722,6 +722,6 @@ NODE_CLASS_MAPPINGS_TURBO = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS_TURBO = {
-    "BSAIPrismTurboOptimizer": "BSAI Prism Turbo 优化（torch.compile）",
-    "BSAIPrismTurboSampler": "BSAI Prism Turbo 采样（CFG Rescale + 跳步）",
+    "BSAIPrismTurboOptimizer": "BSAI Prism Turbo Optimizer (torch.compile)",
+    "BSAIPrismTurboSampler": "BSAI Prism Turbo Sampler (CFG Rescale + Step Skip)",
 }

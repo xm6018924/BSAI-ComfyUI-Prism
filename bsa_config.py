@@ -27,8 +27,8 @@ class ResolutionProfile:
 
 
 RESOLUTION_PROFILES = {
-    # --- 横板（Landscape）---
-    "横板 480p (848×480)": ResolutionProfile(
+    # --- Landscape ---
+    "Landscape 480p (848x480)": ResolutionProfile(
         name="480p",
         height=480,
         width=848,
@@ -36,9 +36,9 @@ RESOLUTION_PROFILES = {
         audio_shift=7.0,
         num_frames=193,
         vae_tiling=False,
-        note="官方最低档位；小显存也可跑，建议开启 CPU offload。",
+        note="Official minimum tier; runs on small VRAM, CPU offload recommended.",
     ),
-    "横板 720p (1280×720)": ResolutionProfile(
+    "Landscape 720p (1280x720)": ResolutionProfile(
         name="720p",
         height=720,
         width=1280,
@@ -46,9 +46,9 @@ RESOLUTION_PROFILES = {
         audio_shift=7.0,
         num_frames=205,
         vae_tiling=False,
-        note="官方推荐单 80GB 卡 + CPU offload 的档位。",
+        note="Official recommended tier: single 80GB GPU + CPU offload.",
     ),
-    "横板 1080p (1920×1072)": ResolutionProfile(
+    "Landscape 1080p (1920x1072)": ResolutionProfile(
         name="1080p",
         height=1072,
         width=1920,
@@ -56,9 +56,9 @@ RESOLUTION_PROFILES = {
         audio_shift=9.0,
         num_frames=205,
         vae_tiling=True,
-        note="官方推荐 4x80GB FSDP；单卡约需 80GB 显存，VAE 解码自动开 tiling。",
+        note="Official recommended 4x80GB FSDP; single GPU needs ~80GB, VAE tiling auto-enabled.",
     ),
-    "横板 2K (2560×1440)": ResolutionProfile(
+    "Landscape 2K (2560x1440)": ResolutionProfile(
         name="2k",
         height=1440,
         width=2560,
@@ -66,10 +66,10 @@ RESOLUTION_PROFILES = {
         audio_shift=11.0,
         num_frames=205,
         vae_tiling=True,
-        note="官方推荐 4+ x80GB FSDP；单卡基本不可行，谨慎使用。",
+        note="Official recommended 4+ x80GB FSDP; not practical on a single GPU.",
     ),
-    # --- 竖版（Portrait）---
-    "竖板 480p (480×848)": ResolutionProfile(
+    # --- Portrait ---
+    "Portrait 480p (480x848)": ResolutionProfile(
         name="480p",
         height=848,
         width=480,
@@ -77,9 +77,9 @@ RESOLUTION_PROFILES = {
         audio_shift=7.0,
         num_frames=193,
         vae_tiling=False,
-        note="竖版最低档位；适合短视频/手机竖屏。",
+        note="Minimum portrait tier; for short videos / phone vertical screen.",
     ),
-    "竖板 720p (720×1280)": ResolutionProfile(
+    "Portrait 720p (720x1280)": ResolutionProfile(
         name="720p",
         height=1280,
         width=720,
@@ -87,9 +87,9 @@ RESOLUTION_PROFILES = {
         audio_shift=7.0,
         num_frames=205,
         vae_tiling=False,
-        note="竖版 720p；适合手机竖屏观看。",
+        note="Portrait 720p; for phone vertical playback.",
     ),
-    "竖板 1080p (1072×1920)": ResolutionProfile(
+    "Portrait 1080p (1072x1920)": ResolutionProfile(
         name="1080p",
         height=1920,
         width=1072,
@@ -97,9 +97,9 @@ RESOLUTION_PROFILES = {
         audio_shift=9.0,
         num_frames=205,
         vae_tiling=True,
-        note="竖版 1080p；推荐多卡 FSDP。",
+        note="Portrait 1080p; multi-GPU FSDP recommended.",
     ),
-    "竖板 2K (1440×2560)": ResolutionProfile(
+    "Portrait 2K (1440x2560)": ResolutionProfile(
         name="2k",
         height=2560,
         width=1440,
@@ -107,10 +107,10 @@ RESOLUTION_PROFILES = {
         audio_shift=11.0,
         num_frames=205,
         vae_tiling=True,
-        note="竖版 2K；需要 4+ x80GB FSDP。",
+        note="Portrait 2K; requires 4+ x80GB FSDP.",
     ),
-    # --- 自定义 ---
-    "custom 自定义": ResolutionProfile(
+    # --- Custom ---
+    "Custom": ResolutionProfile(
         name="custom",
         height=480,
         width=848,
@@ -118,21 +118,21 @@ RESOLUTION_PROFILES = {
         audio_shift=7.0,
         num_frames=193,
         vae_tiling=False,
-        note="自定义：高度/宽度必须能被 16 整除，帧数需满足 (n-1) % 4 == 0（自动对齐）。",
+        note="Custom: height/width must be divisible by 16, frames must satisfy (n-1) % 4 == 0 (auto-aligned).",
     ),
 }
 
-# 分辨率预设的显示顺序（下拉框展示顺序）
+# Display order of resolution presets (dropdown order)
 RESOLUTION_ORDER = [
-    "横板 720p (1280×720)",
-    "横板 480p (848×480)",
-    "横板 1080p (1920×1072)",
-    "横板 2K (2560×1440)",
-    "竖板 720p (720×1280)",
-    "竖板 480p (480×848)",
-    "竖板 1080p (1072×1920)",
-    "竖板 2K (1440×2560)",
-    "custom 自定义",
+    "Landscape 720p (1280x720)",
+    "Landscape 480p (848x480)",
+    "Landscape 1080p (1920x1072)",
+    "Landscape 2K (2560x1440)",
+    "Portrait 720p (720x1280)",
+    "Portrait 480p (480x848)",
+    "Portrait 1080p (1072x1920)",
+    "Portrait 2K (1440x2560)",
+    "Custom",
 ]
 
 
@@ -184,16 +184,16 @@ class BSAParams:
     def validate(self):
         """互斥与取值范围校验，任何冲突直接抛错（不静默降级）。"""
         if not (0.0 < self.bsa_sparsity <= 1.0):
-            raise ValueError(f"bsa_sparsity 必须在 (0, 1]：{self.bsa_sparsity}")
+            raise ValueError(f"bsa_sparsity must be in (0, 1]: {self.bsa_sparsity}")
         if self.bsa_cdf_threshold is not None and not (0.0 < self.bsa_cdf_threshold <= 1.0):
-            raise ValueError(f"bsa_cdf_threshold 必须在 (0, 1]：{self.bsa_cdf_threshold}")
+            raise ValueError(f"bsa_cdf_threshold must be in (0, 1]: {self.bsa_cdf_threshold}")
         if self.enable_taylor_sparse_attn and self.enable_rectified_sparse_attn:
             raise ValueError(
-                "enable_taylor_sparse_attn 与 enable_rectified_sparse_attn 互斥，"
-                "最多只能开启一个。"
+                "enable_taylor_sparse_attn and enable_rectified_sparse_attn are mutually "
+                "exclusive; enable at most one."
             )
         if self.enable_ivpq_dynamic_block and self.enable_penalty_dynamic_block():
-            raise ValueError("enable_ivpq_dynamic_block 与 enable_penalty_dynamic_block 互斥。")
+            raise ValueError("enable_ivpq_dynamic_block and enable_penalty_dynamic_block are mutually exclusive.")
         if self.dynamic_block_enabled() and (
             self.enable_audio_guidance
             or self.enable_audio_weighted_pooling
@@ -202,8 +202,8 @@ class BSAParams:
             or self.enable_rectified_sparse_attn
         ):
             raise ValueError(
-                "动态块形状（IVPQ）与音频引导/方差引导/Taylor/Rectified 偏差校正互斥，"
-                "请关闭其中一组。"
+                "Dynamic block shape (IVPQ) is mutually exclusive with audio guidance / "
+                "variance guidance / Taylor / Rectified bias correction; disable one group."
             )
         for label, s in (
             ("bsa_chunk_3d_shape_q", self.bsa_chunk_3d_shape_q),
@@ -213,9 +213,9 @@ class BSAParams:
             try:
                 v = tuple(int(x) for x in s.split())
             except Exception as exc:
-                raise ValueError(f"{label} 必须是 3 个整数（空格分隔），例如 \"4 4 4\"：{s}") from exc
+                raise ValueError(f"{label} must be 3 integers (space-separated), e.g. \"4 4 4\": {s}") from exc
             if len(v) != 3:
-                raise ValueError(f"{label} 必须是 3 个整数（空格分隔），例如 \"4 4 4\"：{s}")
+                raise ValueError(f"{label} must be 3 integers (space-separated), e.g. \"4 4 4\": {s}")
 
     def enable_penalty_dynamic_block(self):
         # 插件 v1 不暴露 Penalty（与 IVPQ 互斥的第二条路径），保留校验位
@@ -225,8 +225,9 @@ class BSAParams:
         return self.enable_ivpq_dynamic_block or self.enable_penalty_dynamic_block()
 
 
-# 官方默认负向提示词（sample_mova_single.py 内置）
+# Official default negative prompt (built into sample_mova_single.py)
 DEFAULT_NEGATIVE_PROMPT = (
-    "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，"
-    "整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指"
+    "oversaturated colors, overexposed, static, blurry details, subtitles, watermarks, "
+    "stylized artifacts, artwork, still frame, washed-out gray, worst quality, low quality, "
+    "JPEG compression artifacts, ugly, mutilated, extra fingers"
 )

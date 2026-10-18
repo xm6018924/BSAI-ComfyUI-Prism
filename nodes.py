@@ -31,12 +31,16 @@ from .bsa_config import (
 )
 from . import model_manager
 from .ffmpeg_helper import save_video_with_audio
-from .download_weights import COMPONENT_PATTERNS, download_component
+from .download_weights import (
+    COMPONENT_PATTERNS,
+    PRISM_MODELS_SUBDIR,
+    download_component,
+)
 
 PRISM_MODEL_TYPE = "BSAI_PRISM_MODEL"
 
-# Prism 权重根目录（ComfyUI models/diffusers 下）
-_PRISM_ROOT = os.path.join(folder_paths.models_dir, "diffusers", "BSAI-Prism")
+# Fixed Prism weight root (under ComfyUI models/diffusers/BSAI-Prism)
+_PRISM_ROOT = os.path.join(folder_paths.models_dir, PRISM_MODELS_SUBDIR)
 
 
 def _scan_base_models():
@@ -72,8 +76,8 @@ def _resolve_base_path(base_name):
 
 
 def _resolve_resume_ckpt(ckpt_name):
-    """将下拉选择的 checkpoint 名称解析为绝对路径。"""
-    if not ckpt_name or ckpt_name == "（无）" or ckpt_name == "none":
+    """Resolve the selected checkpoint dropdown name to an absolute path."""
+    if not ckpt_name or ckpt_name == "(None)" or ckpt_name == "none":
         return ""
     if os.sep in ckpt_name or "/" in ckpt_name:
         return os.path.abspath(ckpt_name)
@@ -106,7 +110,7 @@ class BSAIPrismLoader:
     @classmethod
     def INPUT_TYPES(cls):
         base_models = _scan_base_models()
-        resume_ckpts = _scan_resume_ckpts() + ["（无）"]
+        resume_ckpts = _scan_resume_ckpts() + ["(None)"]
         devices = ["cuda:0"] if torch.cuda.is_available() else []
         if torch.cuda.is_available():
             devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
@@ -114,71 +118,69 @@ class BSAIPrismLoader:
             "required": {
                 "base_model": (base_models, {
                     "default": base_models[0],
-                    "tooltip": "MOVA 基底模型（架构骨架，不含微调权重）。"
-                               "决定模型整体结构、VAE、text_encoder 等基础组件。"
-                               "相当于'毛坯房'，提供基本框架。",
+                    "tooltip": "MOVA base model (architecture skeleton, no fine-tuned weights). "
+                               "Defines the overall structure, VAE, text_encoder and other base components.",
                 }),
                 "resume_ckpt": (resume_ckpts, {
                     "default": resume_ckpts[0],
-                    "tooltip": "Prism 微调权重（preview_alpha / preview_beta）。"
-                               "在基底之上加载，决定生成质量和风格。"
-                               "相当于'精装修'，赋予模型实际生成能力。"
-                               "选择（无）则只用基底（不推荐，效果差）。",
+                    "tooltip": "Prism fine-tuned weights (preview_alpha / preview_beta). "
+                               "Loaded on top of the base; determines generation quality and style. "
+                               "Choose (None) to use the base only (not recommended, poor quality).",
                 }),
                 "device": (devices or ["N/A"], {
                     "default": "cuda:0" if devices else "N/A",
-                    "tooltip": "运行设备。Prism 依赖 flash-attn，仅支持 NVIDIA CUDA。",
+                    "tooltip": "Runtime device. Prism depends on flash-attn; NVIDIA CUDA only.",
                 }),
                 "offload": (["cpu", "none"], {
                     "default": "cpu",
-                    "tooltip": "cpu = 编码器/VAE 按阶段搬入搬出 GPU，单卡省显存（官方推荐）；"
-                               "none = 全量驻留 GPU，峰值更高。",
+                    "tooltip": "cpu = encoder/VAE moved in and out of GPU per stage, saves VRAM on a single GPU (official default); "
+                               "none = fully resident on GPU, higher peak usage.",
                 }),
                 "enable_bsa": ("BOOLEAN", {
                     "default": True,
-                    "tooltip": "开启 Prism Block Sparse Attention（视频自注意力 top-k/top-p 稀疏）。",
+                    "tooltip": "Enable Prism Block Sparse Attention (video self-attention top-k/top-p sparsity).",
                 }),
                 "bsa_sparsity": ("FLOAT", {
                     "default": 0.75, "min": 0.1, "max": 0.95, "step": 0.01,
-                    "tooltip": "top-k 稀疏率（官方推荐 0.93 / 0.85 / 0.75；越小越稀疏、越快）。",
+                    "tooltip": "top-k sparsity (official recommended 0.93 / 0.85 / 0.75; smaller = sparser/faster).",
                 }),
                 "bsa_chunk_3d_shape_q": ("STRING", {
                     "default": "4 4 4", "multiline": False,
-                    "tooltip": "视频自注意力 Q 的 3D 宏区形状 (T H W)，官方最优 4 4 4。",
+                    "tooltip": "3D macro-block shape (T H W) for video self-attention Q; official optimum 4 4 4.",
                 }),
                 "bsa_chunk_3d_shape_k": ("STRING", {
                     "default": "4 4 4", "multiline": False,
-                    "tooltip": "视频自注意力 K 的 3D 宏区形状 (T H W)，官方最优 4 4 4。",
+                    "tooltip": "3D macro-block shape (T H W) for video self-attention K; official optimum 4 4 4.",
                 }),
                 "bsa_cdf_threshold": ("FLOAT", {
                     "default": 0.20, "min": 0.0, "max": 0.5, "step": 0.01,
-                    "tooltip": "混合 Top-k+Top-p 的 CDF 阈值（官方 0.16~0.4，最优 0.2）。"
-                               "0 = 纯 Top-k。",
+                    "tooltip": "CDF threshold for mixed Top-k + Top-p (official 0.16~0.4, optimum 0.2). "
+                               "0 = pure Top-k.",
                 }),
                 "enable_ivpq_dynamic_block": ("BOOLEAN", {
                     "default": True,
-                    "tooltip": "Prism 核心：按局部内容方差与音视频耦合度自适应分配各向异性块形状。"
-                               "开启后与音频/方差引导、Taylor/Rectified 互斥（冲突会直接报错）。",
+                    "tooltip": "Prism core: anisotropic block shape adapted to local content variance and audio-video coupling. "
+                               "When enabled, it is mutually exclusive with audio/variance guidance and Taylor/Rectified (conflicts raise an error).",
                 }),
                 "enable_layer_adaptive_dynamic_block": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "浅层固定块 / 深层动态块 + 浅->深音频缓存（仅动态块开启时生效）。",
+                    "tooltip": "Shallow fixed blocks / deep dynamic blocks + shallow->deep audio caching (only effective when dynamic blocks are on).",
                 }),
                 "sparse_high_noise_only": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "true = 稀疏注意力只作用于高噪声专家 video_dit，"
-                               "低噪声专家 video_dit_2 保持全注意力。",
+                    "tooltip": "true = sparse attention only on the high-noise expert video_dit; "
+                               "the low-noise expert video_dit_2 keeps full attention.",
                 }),
                 "enable_bsa_v2a": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "bridge v2a 交叉注意力 BSA（Q=audio，K=video 3D 分块）。",
+                    "tooltip": "Bridge v2a cross-attention BSA (Q=audio, K=video 3D blocking).",
                 }),
                 "bsa_v2a_sparsity": ("FLOAT", {
                     "default": 0.875, "min": 0.1, "max": 0.95, "step": 0.01,
                 }),
                 "bsa_v2a_audio_chunk_size": ("INT", {
                     "default": 64, "min": 32, "max": 512, "step": 32,
-                    "tooltip": "audio Q 块大小（64 的倍数）。",
+                    "tooltip": "audio Q block size (multiple of 64).",
                 }),
                 "bsa_v2a_chunk_3d_shape_k": ("STRING", {
                     "default": "4 4 4", "multiline": False,
@@ -187,25 +189,25 @@ class BSAIPrismLoader:
             "optional": {
                 "enable_audio_guidance": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "音频引导 BSA（Path A，与动态块互斥）。",
+                    "tooltip": "Audio guidance BSA (Path A; mutually exclusive with dynamic blocks).",
                 }),
                 "audio_boost_gamma": ("FLOAT", {
                     "default": 2.0, "min": 0.0, "max": 4.0, "step": 0.1,
                 }),
                 "enable_variance_guidance": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "通道方差引导 BSA（与动态块互斥）。",
+                    "tooltip": "Channel variance guidance BSA (mutually exclusive with dynamic blocks).",
                 }),
                 "variance_boost_gamma": ("FLOAT", {
                     "default": 2.0, "min": 0.0, "max": 4.0, "step": 0.1,
                 }),
                 "enable_taylor_sparse_attn": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "Taylor 稀疏注意力偏差校正（与 Rectified 互斥，与动态块互斥）。",
+                    "tooltip": "Taylor sparse-attention bias correction (mutually exclusive with Rectified and with dynamic blocks).",
                 }),
                 "enable_rectified_sparse_attn": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "Rectified 稀疏注意力偏差校正（与 Taylor 互斥，与动态块互斥）。",
+                    "tooltip": "Rectified sparse-attention bias correction (mutually exclusive with Taylor and with dynamic blocks).",
                 }),
             },
         }
@@ -240,35 +242,35 @@ class BSAIPrismLoader:
         enable_taylor_sparse_attn=False,
         enable_rectified_sparse_attn=False,
     ):
-        # ---- 运行环境校验（不静默降级）----
+        # ---- Runtime checks (no silent fallback) ----
         if not torch.cuda.is_available():
             raise RuntimeError(
-                "BSAI Prism 需要 NVIDIA CUDA（flash-attn 依赖）。"
-                "请在 python_embeded_cuda 环境（torch+cu130）中运行 ComfyUI。"
+                "BSAI Prism requires NVIDIA CUDA (flash-attn dependency). "
+                "Run ComfyUI in the python_embeded_cuda environment (torch+cu130)."
             )
 
-        # 移植自 richservo/comfyui-mova：加载前释放 ComfyUI 管理的其它模型
+        # Ported from richservo/comfyui-mova: release other ComfyUI-managed models before loading
         mm.unload_all_models()
         if device in ("N/A", "") or not device.startswith("cuda"):
-            raise ValueError(f"设备无效：{device}")
+            raise ValueError(f"Invalid device: {device}")
         dev_idx = int(device.split(":")[-1])
         if dev_idx >= torch.cuda.device_count():
             raise ValueError(
-                f"CUDA 设备索引 {dev_idx} 超出范围（共 {torch.cuda.device_count()} 个）。"
+                f"CUDA device index {dev_idx} out of range ({torch.cuda.device_count()} device(s) available)."
             )
 
-        # 解析基底和 checkpoint 路径（下拉名称 -> 绝对路径）
+        # Resolve base and checkpoint paths (dropdown name -> absolute path)
         base_model_path = _resolve_base_path(base_model)
         resume_ckpt_path = _resolve_resume_ckpt(resume_ckpt)
 
         base_model_path = os.path.abspath(base_model_path)
         if not os.path.isfile(os.path.join(base_model_path, "model_index.json")):
             raise FileNotFoundError(
-                f"找不到 MOVA 基底：{base_model_path}（需要包含 model_index.json）。"
-                "可用 BSAIPrismWeightsDownload 节点下载，或检查路径。"
+                f"MOVA base not found: {base_model_path} (must contain model_index.json). "
+                "Use the BSAIPrismWeightsDownload node, or check the path."
             )
         if resume_ckpt_path and not os.path.isfile(resume_ckpt_path):
-            raise FileNotFoundError(f"找不到 resume_ckpt：{resume_ckpt_path}")
+            raise FileNotFoundError(f"resume_ckpt not found: {resume_ckpt_path}")
 
         bsa = BSAParams(
             enable_bsa=enable_bsa,
@@ -305,7 +307,7 @@ class BSAIPrismLoader:
 
         cached = model_manager.get_cached(key)
         if cached is not None:
-            _log(f"命中缓存模型（{base_model_path} / {resume_ckpt_path or 'base-only'}）")
+            _log(f"cache hit ({base_model_path} / {resume_ckpt_path or 'base-only'})")
             handle = PrismModelHandle(
                 key=key, base_model_path=base_model_path, resume_ckpt=resume_ckpt_path,
                 device=device, offload=offload, bsa=bsa,
@@ -346,26 +348,26 @@ class BSAIPrismSampler:
                 "prompt": ("STRING", {
                     "default": "A man with short gray hair plays a red electric guitar.",
                     "multiline": True,
-                    "tooltip": "视频提示词，支持结构化标签 <music> <sfx> <speech> <text> <lyrics>。",
+                    "tooltip": "Video prompt; supports structured tags <music> <sfx> <speech> <text> <lyrics>.",
                 }),
                 "audio_prompt": ("STRING", {
                     "default": "",
                     "multiline": True,
-                    "tooltip": "音频提示词，留空则复用视频提示词。",
+                    "tooltip": "Audio prompt; leave empty to reuse the video prompt.",
                 }),
                 "negative_prompt": ("STRING", {
                     "default": DEFAULT_NEGATIVE_PROMPT,
                     "multiline": True,
                 }),
                 "resolution": (RESOLUTION_ORDER, {
-                    "default": "横板 720p (1280×720)",
-                    "tooltip": "分辨率档位；选 custom 自定义 时可手动调整下方宽高。",
+                    "default": "Landscape 720p (1280x720)",
+                    "tooltip": "Resolution tier; choose Custom to manually adjust width/height below.",
                 }),
                 "width": ("INT", {"default": 1280, "min": 448, "max": 4096, "step": 16}),
                 "height": ("INT", {"default": 720, "min": 256, "max": 2048, "step": 16}),
                 "num_frames": ("INT", {
                     "default": 205, "min": 17, "max": 1024, "step": 4,
-                    "tooltip": "生成帧数（像素空间）。自动对齐到 (n-1) % 4 == 0。",
+                    "tooltip": "Number of frames (pixel space). Auto-aligned to (n-1) % 4 == 0.",
                 }),
                 "fps": ("FLOAT", {"default": 24.0, "min": 1.0, "max": 60.0, "step": 0.5}),
                 "num_inference_steps": ("INT", {
@@ -373,11 +375,11 @@ class BSAIPrismSampler:
                 }),
                 "cfg_scale": ("FLOAT", {
                     "default": 5.0, "min": 1.0, "max": 15.0, "step": 0.1,
-                    "tooltip": "分类器自由引导强度；1.0 = 无引导。",
+                    "tooltip": "Classifier-free guidance strength; 1.0 = no guidance.",
                 }),
                 "visual_shift": ("FLOAT", {
                     "default": 7.0, "min": 1.0, "max": 20.0, "step": 0.5,
-                    "tooltip": "视频噪声调度 shift。720p≈7.0，1080p≈9~13，2K≈13~17。",
+                    "tooltip": "Video noise-schedule shift. 720p~7.0, 1080p~9~13, 2K~13~17.",
                 }),
                 "audio_shift": ("FLOAT", {
                     "default": 7.0, "min": 1.0, "max": 20.0, "step": 0.5,
@@ -385,32 +387,32 @@ class BSAIPrismSampler:
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0x7FFFFFFF, "step": 1}),
                 "enable_vae_tiling": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "VAE 解码空间分块（2K/1080p 防 OOM）。档位预设会自动覆盖。",
+                    "tooltip": "Tile VAE decoding (2K/1080p OOM prevention). Tier presets override this automatically.",
                 }),
                 "tile_sample_min_size": ("INT", {"default": 256, "min": 64, "max": 1024, "step": 32}),
                 "tile_sample_stride": ("INT", {"default": 192, "min": 32, "max": 1024, "step": 32}),
                 "remove_video_dit_after_switch": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "边界切换后释放高噪声专家 video_dit，节省显存（不可逆，仅内部释放）。",
+                    "tooltip": "Release the high-noise expert video_dit after the boundary switch to save VRAM (irreversible; internal release only).",
                 }),
                 "audio_strength": ("FLOAT", {
                     "default": 0.8, "min": 0.0, "max": 1.0, "step": 0.05,
-                    "tooltip": "音频注入强度（lip-sync）。1.0=完全保留输入音频，0.0=忽略音频从头生成。"
-                               "需连接 audio 输入才生效。",
+                    "tooltip": "Audio injection strength (lip-sync). 1.0 = fully preserve input audio, 0.0 = ignore audio and generate from scratch. "
+                               "Requires a connected audio input.",
                 }),
                 "auto_duration": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "根据输入音频长度自动计算帧数（需连接 audio 输入）。",
+                    "tooltip": "Auto-compute frame count from the input audio length (requires a connected audio input).",
                 }),
                 "save_video": ("BOOLEAN", {"default": True}),
                 "filename_prefix": ("STRING", {"default": "BSAI_Prism"}),
             },
             "optional": {
                 "image": ("IMAGE", {
-                    "tooltip": "参考图（i2v 首帧）。留空 = 文生视频（从黑图开始 denoise）。会按目标分辨率中心裁剪并缩放。",
+                    "tooltip": "Reference image (i2v first frame). Leave empty = text-to-video (denoise from a black frame). Center-cropped and resized to the target resolution.",
                 }),
                 "audio": ("AUDIO", {
-                    "tooltip": "预生成音频（语音/音乐），用于 lip-sync 对口型。连接后配合 audio_strength 控制保留程度。",
+                    "tooltip": "Pre-generated audio (speech/music) for lip-sync. Once connected, use audio_strength to control how much is preserved.",
                 }),
             },
         }
@@ -423,8 +425,8 @@ class BSAIPrismSampler:
 
     def _resolve_geometry(self, resolution, width, height, visual_shift, audio_shift,
                           enable_vae_tiling, num_frames):
-        """档位预设覆盖几何与 shift；custom 自定义 用控件值。"""
-        if resolution == "custom 自定义":
+        """Tier presets override geometry and shift; Custom uses the widget values."""
+        if resolution == "Custom":
             return int(height), int(width), float(visual_shift), float(
                 audio_shift), bool(enable_vae_tiling)
         prof = RESOLUTION_PROFILES[resolution]
@@ -434,7 +436,7 @@ class BSAIPrismSampler:
     def _snap(value, base, label):
         snapped = int(value) - (int(value) % base)
         if snapped != int(value):
-            _log(f"{label} {value} -> {snapped}（需为 {base} 的倍数）")
+            _log(f"{label} {value} -> {snapped} (must be a multiple of {base})")
         return snapped
 
     @staticmethod
@@ -460,7 +462,7 @@ class BSAIPrismSampler:
         prompt,
         audio_prompt="",
         negative_prompt=DEFAULT_NEGATIVE_PROMPT,
-        resolution="横板 720p (1280×720)",
+        resolution="Landscape 720p (1280x720)",
         width=1280,
         height=720,
         num_frames=205,
@@ -486,7 +488,8 @@ class BSAIPrismSampler:
         loaded = model_manager.get_cached(prism_model.key)
         if loaded is None:
             raise RuntimeError(
-                "模型缓存丢失（可能已被 BSAIPrismUnload 释放或进程重启），请重新执行加载节点。"
+                "Model cache lost (it may have been released by BSAIPrismUnload or a process restart); "
+                "re-run the loader node."
             )
 
         h, w, v_shift, a_shift, tiling = self._resolve_geometry(
@@ -503,12 +506,12 @@ class BSAIPrismSampler:
             duration = audio_samples / audio_sr
             raw_frames = int(duration * fps)
             num_frames = max(17, ((raw_frames - 1) // 4) * 4 + 1)
-            _log(f"auto_duration: 音频 {duration:.2f}s → {num_frames} 帧")
+            _log(f"auto_duration: audio {duration:.2f}s -> {num_frames} frames")
 
         _log(
-            f"采样参数：{h}x{w} @ {fps}fps，{num_frames} 帧，{num_inference_steps} 步，"
-            f"cfg={cfg_scale}，visual_shift={v_shift}，audio_shift={a_shift}，seed={seed}，"
-            f"tiling={tiling}，bsa_sparsity={prism_model.bsa.bsa_sparsity}"
+            f"sampling: {h}x{w} @ {fps}fps, {num_frames} frames, {num_inference_steps} steps, "
+            f"cfg={cfg_scale}, visual_shift={v_shift}, audio_shift={a_shift}, seed={seed}, "
+            f"tiling={tiling}, bsa_sparsity={prism_model.bsa.bsa_sparsity}"
         )
 
         pipeline = model_manager.build_pipeline(
@@ -518,7 +521,7 @@ class BSAIPrismSampler:
         # 参考图：ComfyUI IMAGE [B,H,W,3] -> PIL
         if image is None:
             # t2v: 纯噪声初始化（pipeline 内部 condition 全零）
-            _log("[t2v] image 未连接，纯噪声文生视频模式")
+            _log("[t2v] image not connected; pure-noise text-to-video mode")
             ref_img = None
         else:
             ref_np = image[0].cpu().numpy()
@@ -530,7 +533,7 @@ class BSAIPrismSampler:
         raw_num_frames = int(num_frames)
         num_frames = raw_num_frames - (raw_num_frames - 1) % pipeline.vae_scale_factor_temporal
         if num_frames != raw_num_frames:
-            _log(f"num_frames {raw_num_frames} -> {num_frames}（需满足 (n-1) % 4 == 0）")
+            _log(f"num_frames {raw_num_frames} -> {num_frames} (must satisfy (n-1) % 4 == 0)")
 
         # 需要对齐到 check_inputs 的另一个条件：(n-1) % temporal == 0 已满足；
         # 若用户给 < 5 帧则兜底
@@ -574,7 +577,7 @@ class BSAIPrismSampler:
                 z = enc_out[0] if isinstance(enc_out, tuple) else enc_out
                 _clean_audio_latents = z.mode().float()
             pipeline.audio_vae.to("cpu")
-            _log(f"音频注入：strength={audio_strength}，latents {_clean_audio_latents.shape}")
+            _log(f"audio injection: strength={audio_strength}, latents {_clean_audio_latents.shape}")
 
             denoise_strength = max(1.0 - audio_strength, 0.001)
 
@@ -659,7 +662,7 @@ class BSAIPrismSampler:
                 "subfolder": "BSAI_Prism",
                 "type": "output",
             }]
-            _log(f"已保存：{video_path}")
+            _log(f"saved: {video_path}")
 
         return {"ui": {"videos": videos_ui}, "result": (images, audio_dict, video_path)}
 
@@ -707,7 +710,7 @@ class BSAIPrismVideoEncode:
         )
         video_path = os.path.join(out_dir, f"{filename_prefix}_{counter:05d}.mp4")
         save_video_with_audio(frames, audio_t, video_path, fps=fps, sample_rate=sr)
-        _log(f"已合成：{video_path}")
+        _log(f"muxed: {video_path}")
         return {
             "ui": {"videos": [{
                 "filename": os.path.basename(video_path),
@@ -725,21 +728,17 @@ class BSAIPrismVideoEncode:
 class BSAIPrismWeightsDownload:
     @classmethod
     def INPUT_TYPES(cls):
-        default_target = os.path.join(folder_paths.models_dir, "diffusers", "BSAI-Prism")
         return {
             "required": {
-                "target_dir": ("STRING", {
-                    "default": default_target,
-                    "tooltip": "权重落盘根目录：<target>/pretrained_models/MOVA-360p 与 "
-                               "<target>/preview_alpha|beta/...",
-                }),
                 "components": (list(COMPONENT_PATTERNS.keys()), {
                     "default": ["base"],
-                    "tooltip": "base=MOVA-360p 基底（约 40GB）；preview_alpha/beta 各 65.3GB。",
+                    "tooltip": "base = MOVA-360p base (~40GB); preview_alpha/beta are 65.3GB each. "
+                               "Weights are always downloaded into the fixed folder "
+                               "models/diffusers/BSAI-Prism; the destination is not configurable.",
                 }),
                 "use_mirror": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "使用 HF_ENDPOINT=https://hf-mirror.com 镜像下载。",
+                    "tooltip": "Use HF_ENDPOINT=https://hf-mirror.com mirror for downloads.",
                 }),
             },
         }
@@ -749,12 +748,13 @@ class BSAIPrismWeightsDownload:
     FUNCTION = "download"
     CATEGORY = "BSAI/Prism"
 
-    def download(self, target_dir, components, use_mirror=False):
+    def download(self, components, use_mirror=False):
         results = []
         for comp in components:
             if comp not in COMPONENT_PATTERNS:
-                raise ValueError(f"未知组件：{comp}")
-            snapshot = download_component(comp, target_dir, use_mirror=use_mirror)
+                raise ValueError(f"Unknown component: {comp}")
+            # target_dir is intentionally ignored: downloads are pinned to the fixed Prism root.
+            snapshot = download_component(comp, use_mirror=use_mirror)
             results.append(snapshot)
         return ("; ".join(results),)
 
@@ -776,7 +776,7 @@ class BSAIPrismUnload:
     def unload(self):
         count = model_manager.unload_all()
         torch.cuda.empty_cache()
-        return (count, f"已释放 {count} 个模型缓存")
+        return (count, f"Released {count} model cache(s)")
 
 
 # ---------------------------------------------------------------------------
@@ -792,11 +792,11 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "BSAIPrismLoader": "BSAI Prism 模型加载",
-    "BSAIPrismSampler": "BSAI Prism 采样（视频+音频）",
-    "BSAIPrismVideoEncode": "BSAI Prism 音视频合成",
-    "BSAIPrismWeightsDownload": "BSAI Prism 权重下载",
-    "BSAIPrismUnload": "BSAI Prism 卸载模型",
+    "BSAIPrismLoader": "BSAI Prism Model Loader",
+    "BSAIPrismSampler": "BSAI Prism Sampler (Video + Audio)",
+    "BSAIPrismVideoEncode": "BSAI Prism Video/Audio Mux",
+    "BSAIPrismWeightsDownload": "BSAI Prism Weights Download",
+    "BSAIPrismUnload": "BSAI Prism Unload Models",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

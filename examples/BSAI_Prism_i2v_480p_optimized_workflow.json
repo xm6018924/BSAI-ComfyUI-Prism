@@ -146,8 +146,8 @@
       "widgets_values": [
         "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
         "",
-        "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指",
-        "横板 480p (848×480)",
+        "oversaturated colors, overexposed, static, blurry details, subtitles, watermarks, stylized artifacts, artwork, still frame, washed-out gray, worst quality, low quality, JPEG compression artifacts, ugly, mutilated, extra fingers",
+        "Landscape 480p (848x480)",
         848,
         480,
         121,
@@ -168,8 +168,8 @@
       "widgets_values_named": {
         "prompt": "Continuous <sfx>rhythmic percussive drum beats and faint outdoor street traffic ambience</sfx>. Eye-level tracking shot behind a traffic police officer on a sunlit city street. The Black male officer, dressed in a crisp white uniform, peaked cap, and a green-yellow-blue striped belt, energetically directs a long queue of white cars. He raises his right hand to signal vehicles, then bends low into a dynamic, dance-like lunge while sweeping his arms forward. Deep rhythmic male vocalizations accompany his stylized movements: <speech>hm, ooh, ah, ha-ya</speech>. In the background, pedestrians walk along the roadside sidewalk past multi-story urban buildings and trees under clear daylight.",
         "audio_prompt": "",
-        "negative_prompt": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指",
-        "resolution": "横板 480p (848×480)",
+        "negative_prompt": "oversaturated colors, overexposed, static, blurry details, subtitles, watermarks, stylized artifacts, artwork, still frame, washed-out gray, worst quality, low quality, JPEG compression artifacts, ugly, mutilated, extra fingers",
+        "resolution": "Landscape 480p (848x480)",
         "width": 848,
         "height": 480,
         "num_frames": 121,
@@ -266,7 +266,7 @@
           ]
         }
       ],
-      "title": "合成视频 17fps + 音轨",
+      "title": "Mux video 17fps + audio track",
       "properties": {
         "Node name for S&R": "CreateVideo",
         "cnr_id": "comfy-core",
@@ -456,49 +456,49 @@
       ],
       "outputs": [
         {
-          "name": "prompt_output (提示词输出)",
+          "name": "prompt_output (prompt output)",
           "type": "STRING",
           "links": [
             9
           ]
         },
         {
-          "name": "template_name (模板名称)",
+          "name": "template_name (template name)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "generation_mode (生成模式)",
+          "name": "generation_mode (generation mode)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "description (描述)",
+          "name": "description (description)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "video_duration (视频时长)",
+          "name": "video_duration (video duration)",
           "type": "INT",
           "links": []
         },
         {
-          "name": "preview_file (预览文件)",
+          "name": "preview_file (preview file)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "last_frame (视频最后一帧)",
+          "name": "last_frame (last video frame)",
           "type": "IMAGE",
           "links": []
         },
         {
-          "name": "video_1_out (视频1直通)",
+          "name": "video_1_out (video passthrough)",
           "type": "IMAGE",
           "links": []
         },
         {
-          "name": "audio_1_out (音频1直通)",
+          "name": "audio_1_out (audio passthrough)",
           "type": "AUDIO",
           "links": []
         }
@@ -507,13 +507,13 @@
         "Node name for S&R": "BSAI_H3_PromptTemplate"
       },
       "widgets_values": [
-        "(None / 自定义 / Custom)",
+        "(None / Custom)",
         "",
         "",
         ""
       ],
       "widgets_values_named": {
-        "template_select": "(None / 自定义 / Custom)",
+        "template_select": "(None / Custom)",
         "user_customization": "",
         "narration": "",
         "bsai_tpl_ui": ""
@@ -536,7 +536,7 @@
       "inputs": [],
       "outputs": [
         {
-          "name": "prompt_output (提示词输出)",
+          "name": "prompt_output (prompt output)",
           "type": "STRING",
           "links": [
             10,
@@ -544,27 +544,27 @@
           ]
         },
         {
-          "name": "template_name (模板名称)",
+          "name": "template_name (template name)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "generation_mode (生成模式)",
+          "name": "generation_mode (generation mode)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "description (描述)",
+          "name": "description (description)",
           "type": "STRING",
           "links": []
         },
         {
-          "name": "video_duration (视频时长)",
+          "name": "video_duration (video duration)",
           "type": "INT",
           "links": []
         },
         {
-          "name": "preview_file (预览文件)",
+          "name": "preview_file (preview file)",
           "type": "STRING",
           "links": []
         }
