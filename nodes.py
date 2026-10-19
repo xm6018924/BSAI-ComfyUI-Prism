@@ -68,20 +68,21 @@ def _scan_resume_ckpts():
 
 
 def _resolve_base_path(base_name):
-    """将下拉选择的基底名称解析为绝对路径。"""
-    # 如果已经是路径（包含分隔符），直接返回
-    if os.sep in base_name or "/" in base_name:
-        return os.path.abspath(base_name)
-    return os.path.join(_PRISM_ROOT, "pretrained_models", base_name)
+    """Resolve the selected base dropdown name to a folder under the Prism root.
+
+    Only a bare folder name is accepted; any path separators are stripped so the
+    resolved directory always stays inside <models>/BSAI-Prism/pretrained_models.
+    """
+    name = os.path.basename(str(base_name).replace("\\", "/"))
+    return os.path.join(_PRISM_ROOT, "pretrained_models", name)
 
 
 def _resolve_resume_ckpt(ckpt_name):
-    """Resolve the selected checkpoint dropdown name to an absolute path."""
+    """Resolve the selected checkpoint dropdown name to a file under the Prism root."""
     if not ckpt_name or ckpt_name == "(None)" or ckpt_name == "none":
         return ""
-    if os.sep in ckpt_name or "/" in ckpt_name:
-        return os.path.abspath(ckpt_name)
-    return os.path.join(_PRISM_ROOT, ckpt_name, "diffusion_pytorch_model.safetensors")
+    name = os.path.basename(str(ckpt_name).replace("\\", "/"))
+    return os.path.join(_PRISM_ROOT, name, "diffusion_pytorch_model.safetensors")
 
 
 def _log(msg):
