@@ -135,6 +135,22 @@ RESOLUTION_ORDER = [
     "Custom",
 ]
 
+# 旧版（中文）档位标签 -> 英文标签的映射：兼容老工作流 JSON 保存值。
+# 档位几何参数（宽高/shift/帧数）在 i18n 前后完全一致，仅 key 改名。
+_LEGACY_RESOLUTION_MAP = {
+    "横板 720p (1280×720)": "Landscape 720p (1280x720)",
+    "横板 480p (848×480)": "Landscape 480p (848x480)",
+    "横板 1080p (1920×1072)": "Landscape 1080p (1920x1072)",
+    "横板 2K (2560×1440)": "Landscape 2K (2560x1440)",
+    "竖板 720p (720×1280)": "Portrait 720p (720x1280)",
+    "竖板 480p (480×848)": "Portrait 480p (480x848)",
+    "竖板 1080p (1072×1920)": "Portrait 1080p (1072x1920)",
+    "竖板 2K (1440×2560)": "Portrait 2K (1440x2560)",
+    "custom 自定义": "Custom",
+}
+# 后 9 项为旧版标签：兼容老工作流 JSON 保存值（英文档位行为不变）
+RESOLUTION_ORDER = RESOLUTION_ORDER + list(_LEGACY_RESOLUTION_MAP.keys())
+
 
 @dataclass
 class BSAParams:

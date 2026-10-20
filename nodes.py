@@ -28,6 +28,7 @@ from .bsa_config import (
     DEFAULT_NEGATIVE_PROMPT,
     RESOLUTION_ORDER,
     RESOLUTION_PROFILES,
+    _LEGACY_RESOLUTION_MAP,
 )
 from . import model_manager
 from .ffmpeg_helper import save_video_with_audio
@@ -79,7 +80,7 @@ def _resolve_base_path(base_name):
 
 def _resolve_resume_ckpt(ckpt_name):
     """Resolve the selected checkpoint dropdown name to a file under the Prism root."""
-    if not ckpt_name or ckpt_name == "(None)" or ckpt_name == "none":
+    if not ckpt_name or ckpt_name in ("(None)", "（无）", "none"):
         return ""
     name = os.path.basename(str(ckpt_name).replace("\\", "/"))
     return os.path.join(_PRISM_ROOT, name, "diffusion_pytorch_model.safetensors")
@@ -111,7 +112,8 @@ class BSAIPrismLoader:
     @classmethod
     def INPUT_TYPES(cls):
         base_models = _scan_base_models()
-        resume_ckpts = _scan_resume_ckpts() + ["(None)"]
+        # 末项 "（无）" 为旧版哨兵标签：兼容老工作流 JSON 保存值
+        resume_ckpts = _scan_resume_ckpts() + ["(None)", "（无）"]
         devices = ["cuda:0"] if torch.cuda.is_available() else []
         if torch.cuda.is_available():
             devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
@@ -486,6 +488,9 @@ class BSAIPrismSampler:
     ):
         from PIL import Image
 
+        # 旧版中文档位标签归一化到英文标签（语义/参数完全一致）
+        resolution = _LEGACY_RESOLUTION_MAP.get(resolution, resolution)
+
         loaded = model_manager.get_cached(prism_model.key)
         if loaded is None:
             raise RuntimeError(
@@ -749,7 +754,9 @@ class BSAIPrismWeightsDownload:
     FUNCTION = "download"
     CATEGORY = "BSAI/Prism"
 
-    def download(self, components, use_mirror=False):
+    def download(self, components, use_mirror=False, target_dir=None):
+        # target_dir 仅为兼容老工作流 JSON 保留（已删除的旧控件），任何传入路径一律忽略：
+        # 下载固定落到 models/diffusers/BSAI-Prism 根目录。
         results = []
         for comp in components:
             if comp not in COMPONENT_PATTERNS:

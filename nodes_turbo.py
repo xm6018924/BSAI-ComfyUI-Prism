@@ -23,6 +23,7 @@ from .bsa_config import (
     DEFAULT_NEGATIVE_PROMPT,
     RESOLUTION_ORDER,
     RESOLUTION_PROFILES,
+    _LEGACY_RESOLUTION_MAP,
 )
 from . import model_manager
 from .ffmpeg_helper import save_video_with_audio
@@ -443,6 +444,9 @@ class BSAIPrismTurboSampler:
         image=None,
     ):
         from PIL import Image
+
+        # 旧版中文档位标签归一化到英文标签（语义/参数完全一致）
+        resolution = _LEGACY_RESOLUTION_MAP.get(resolution, resolution)
 
         loaded = model_manager.get_cached(prism_model.key)
         if loaded is None:
